@@ -13,7 +13,8 @@ from __future__ import annotations
 import os
 
 # Ensure deterministic, fixture-backed AI paths for the entire test session.
-os.environ.setdefault("SECONDLIFE_STUB_MODE", "true")
+# We explicitly override rather than setdefault to beat any local .env configurations
+os.environ["SECONDLIFE_STUB_MODE"] = "true"
 
 import pytest
 from hypothesis import HealthCheck, settings

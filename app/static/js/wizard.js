@@ -35,12 +35,52 @@ async function initiateReturn() {
   }
 }
 
+let uploadedBase64Files = [];
+
+// Listen for file selections
+document.addEventListener('DOMContentLoaded', () => {
+  const photoInput = document.getElementById('photos');
+  if(photoInput) {
+    photoInput.addEventListener('change', async (e) => {
+      uploadedBase64Files = [];
+      const preview = document.getElementById('photo-preview');
+      preview.innerHTML = '';
+      
+      const files = Array.from(e.target.files).slice(0, 10);
+      for(let f of files) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const b64 = evt.target.result;
+          uploadedBase64Files.push({
+            format: f.type,
+            sizeBytes: f.size,
+            base64Data: b64
+          });
+          const img = document.createElement('img');
+          img.src = b64;
+          img.style.width = '80px';
+          img.style.height = '80px';
+          img.style.objectFit = 'cover';
+          img.style.borderRadius = '8px';
+          img.style.border = '1px solid var(--border-color)';
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(f);
+      }
+    });
+  }
+});
+
 async function submitAssessment() {
   if (!currentRrId) return;
-  const photoSet = document.getElementById('photoSet').value;
+  
+  if (uploadedBase64Files.length === 0) {
+    showToast('Please upload at least one photo.', 'error');
+    return;
+  }
+
   const body = {
-    photos: [{ format: 'jpeg', sizeBytes: 2048 }],
-    photoSet: photoSet
+    photos: uploadedBase64Files
   };
 
   showStep(3); // Show processing
@@ -69,7 +109,7 @@ async function triggerDecision() {
     } else {
       // Normal disposition
       document.getElementById('disposition-text').textContent = data.disposition.replace('_', ' ');
-      document.getElementById('decision-desc').textContent = 'Your return has been routed to the optimal channel based on condition and value.';
+      document.getElementById('decision-desc').textContent = data.llmReasoning || 'Your return has been routed to the optimal channel based on condition and value.';
       
       document.getElementById('keep-it-view').classList.add('hidden');
       document.getElementById('decision-view').classList.remove('hidden');

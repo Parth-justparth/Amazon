@@ -546,7 +546,11 @@ def authorize_seller_return(
     if deadline is not None and deadline.tzinfo is None:
         from datetime import timezone
         deadline = deadline.replace(tzinfo=timezone.utc)
-    
+        
+    if moment.tzinfo is None:
+        from datetime import timezone
+        moment = moment.replace(tzinfo=timezone.utc)
+
     window_elapsed = (
         deadline is not None and moment > deadline
     )

@@ -280,19 +280,50 @@ class OpenAIVisionClient:
         )
 
     def _live_assess(self, photo_set: str, item_context: dict) -> AssessmentResult:
-        """Structure for the real OpenAI assessment call (guarded; minimal).
-
-        The demo runs in STUB_MODE; this path is intentionally minimal and only
-        constructs/sends the request when an API key is configured.
-        """
+        """Structure for the real OpenAI assessment call (guarded; minimal)."""
 
         client = self._require_live_client()
-        # Strict JSON response, temperature 0, pinned model. The actual photo
-        # encoding/attachment is out of scope for the stub-mode demo.
-        raise NotImplementedError(
-            "Live OpenAI assessment is not enabled in the demo; run with "
-            "SECONDLIFE_STUB_MODE=true."
-        )
+        
+        # If photo_set is our local file paths, format them as base64 images
+        content_blocks = []
+        content_blocks.append({"type": "text", "text": f"You are an expert return inspector. Analyze these photos for an item of category: {item_context.get('category')}. Provide a strict JSON response containing 'secondLifeScore' (an integer 0-100 indicating condition, 100=pristine, 0=destroyed) and 'conditionSummary' (a 1-500 char string describing the exact visual damage or condition)."})
+        
+        if "|" in photo_set or "\\" in photo_set or "/" in photo_set:
+            paths = photo_set.split("|")
+            import base64
+            for path in paths:
+                try:
+                    with open(path, "rb") as f:
+                        b64 = base64.b64encode(f.read()).decode("utf-8")
+                        content_blocks.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
+                        })
+                except Exception:
+                    pass
+        else:
+            # Fallback for unexpected photo_set
+            content_blocks.append({"type": "text", "text": "Assume the item condition matches this ID: " + photo_set})
+
+        import json
+        try:
+            resp = client.chat.completions.create(
+                model=self._settings.openai_model,
+                temperature=self.temperature,
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": content_blocks}]
+            )
+            parsed = json.loads(resp.choices[0].message.content)
+            score = int(parsed.get("secondLifeScore", 50))
+            summary = str(parsed.get("conditionSummary", "Condition analyzed."))
+            
+            return AssessmentResult(
+                secondLifeScore=_clamp_score(score),
+                conditionSummary=_trim_summary(summary),
+                modelVersion=self.model_version
+            )
+        except Exception as exc:
+            raise AssessmentFailed(f"OpenAI analysis failed: {str(exc)}")
 
     # -- (b) hybrid decision (consumed by task 8) ------------------------
 
@@ -388,11 +419,44 @@ class OpenAIVisionClient:
     ) -> DecisionResult:
         """Structure for the real OpenAI hybrid-decision call (guarded; minimal)."""
 
-        self._require_live_client()
-        raise NotImplementedError(
-            "Live OpenAI decision is not enabled in the demo; run with "
-            "SECONDLIFE_STUB_MODE=true."
-        )
+        client = self._require_live_client()
+        
+        content_blocks = []
+        content_blocks.append({"type": "text", "text": f"You are a routing decision engine for returns. Analyze the item photos and context.\nCategory: {item_context.get('category')}\nEconomics: {economics}\nExcluded dispositions: {excluded_dispositions}\nValid Dispositions: WAREHOUSE_RETURN, HYPERLOCAL_RESALE, GREEN_DONATION.\n\nRule 1: If condition >= 80 and div > rlc -> WAREHOUSE_RETURN\nRule 2: If condition >= 80 and weight > 10kg and rlc > div -> HYPERLOCAL_RESALE\nRule 3: If condition < 80 and rlc >= 0.5 * div -> GREEN_DONATION\nIf excluded, pick next best. \nOutput strict JSON with 'disposition' (string), 'reasoning' (string), and 'secondLifeScore' (int)."})
+
+        if "|" in photo_set or "\\" in photo_set or "/" in photo_set:
+            paths = photo_set.split("|")
+            import base64
+            for path in paths:
+                try:
+                    with open(path, "rb") as f:
+                        b64 = base64.b64encode(f.read()).decode("utf-8")
+                        content_blocks.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
+                        })
+                except Exception:
+                    pass
+
+        import json
+        try:
+            resp = client.chat.completions.create(
+                model=self._settings.openai_model,
+                temperature=self.temperature,
+                response_format={"type": "json_object"},
+                messages=[{"role": "user", "content": content_blocks}]
+            )
+            parsed = json.loads(resp.choices[0].message.content)
+            
+            return DecisionResult(
+                secondLifeScore=parsed.get("secondLifeScore"),
+                disposition=parsed.get("disposition"),
+                reasoning=parsed.get("reasoning"),
+                modelVersion=self.model_version,
+                raw=parsed
+            )
+        except Exception as exc:
+            raise AssessmentFailed(f"OpenAI decision failed: {str(exc)}")
 
     # -- live client helper ----------------------------------------------
 

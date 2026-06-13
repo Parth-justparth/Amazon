@@ -47,8 +47,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./secondlife.db"
 
     # OpenAI / AI configuration
-    openai_model: str = "gpt-4o"
-    openai_model_version: str = "gpt-4o-2024-08-06"
+    openai_model: str = "gpt-4o-mini"
+    openai_model_version: str = "gpt-4o-mini"
     openai_api_key: str = ""
     openai_temperature: float = 0.0
 

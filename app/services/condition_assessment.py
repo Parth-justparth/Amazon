@@ -301,6 +301,7 @@ class PhotoUpload(BaseModel):
 
     format: str = Field(..., description="Image format or MIME type.")
     sizeBytes: int = Field(..., ge=0, description="File size in bytes.")
+    base64Data: str | None = Field(None, description="Base64 encoded image data (data:image/jpeg;base64,...)")
 
 
 class AssessmentRequest(BaseModel):
@@ -334,18 +335,49 @@ def post_assessment(
 ) -> dict:
     """Assess 1-10 uploaded photos and produce the SecondLife_Score (R2)."""
 
+    import os
+    from pathlib import Path
+
     descriptors = [
         PhotoDescriptor(fmt=p.format, size_bytes=p.sizeBytes) for p in body.photos
     ]
+    
+    # Pre-save photos to disk if base64Data is present
+    photo_paths = []
+    upload_dir = Path("scratch/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    for i, p in enumerate(body.photos):
+        if p.base64Data:
+            # Strip data URI header if present
+            b64_str = p.base64Data
+            if "," in b64_str:
+                b64_str = b64_str.split(",", 1)[1]
+                
+            import base64
+            img_data = base64.b64decode(b64_str)
+            file_path = upload_dir / f"{returnRequestId}_{i}.img"
+            with open(file_path, "wb") as f:
+                f.write(img_data)
+            photo_paths.append(str(file_path.absolute()))
+
+    # If we have real photo paths, join them with a separator as the photoSet string
+    # so we can pass them all to the vision client.
+    override_set = "|".join(photo_paths) if photo_paths else body.photoSet
+
     outcome = score_return(
         session,
         returnRequestId,
         descriptors,
-        photo_set_override=body.photoSet,
+        photo_set_override=override_set,
     )
 
     if outcome.ok and outcome.assessment is not None:
         rr = session.get(ReturnRequest, returnRequestId)
+        if photo_paths:
+            rr.photoRefs = photo_paths # Update the actual return request with the local files
+            session.flush()
+            
         return _serialize(rr, outcome.assessment)
 
     raise HTTPException(

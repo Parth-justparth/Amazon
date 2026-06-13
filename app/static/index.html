@@ -26,17 +26,17 @@
         <div class="grid-2">
           <div class="form-group">
             <label>Order ID</label>
-            <input type="text" id="orderId" value="ord_1004" />
+            <input type="text" id="orderId" placeholder="Enter Order ID" />
           </div>
           <div class="form-group">
             <label>Item ID (e.g. item_keepit_01)</label>
-            <input type="text" id="itemId" value="item_keepit_01" />
+            <input type="text" id="itemId" placeholder="Enter Item ID" />
           </div>
         </div>
         <div class="grid-2">
           <div class="form-group">
             <label>Customer ID</label>
-            <input type="text" id="customerId" value="cust_01" />
+            <input type="text" id="customerId" placeholder="Enter Customer ID" />
           </div>
           <div class="form-group">
             <label>Return Reason</label>
@@ -57,7 +57,7 @@
           </div>
           <div class="form-group">
             <label>Date (Seed Window)</label>
-            <input type="text" id="submittedAt" value="2025-01-10" />
+            <input type="text" id="submittedAt" placeholder="YYYY-MM-DD" />
           </div>
         </div>
         <div class="form-group mt-4">
@@ -79,14 +79,11 @@
       <!-- Step 2: Assessment -->
       <div id="step-2" class="hidden animate-fade-in">
         <h2 class="mb-4">Condition Assessment</h2>
-        <p class="mb-4 text-secondary">Upload photos of the item. For the demo, select a pre-configured photo set.</p>
+        <p class="mb-4 text-secondary">Upload photos of the item. Our Vision AI will determine the exact condition score and damage state.</p>
         <div class="form-group">
-          <label>Photo Set (STUB_MODE)</label>
-          <select id="photoSet">
-            <option value="photos_appl_likenew">Appliance: Like New (Score ~85)</option>
-            <option value="photos_elec_pristine">Electronics: Pristine (Score ~95)</option>
-            <option value="photos_foot_worn">Footwear: Worn/Dirty (Score ~20)</option>
-          </select>
+          <label>Photos (Select up to 10 images)</label>
+          <input type="file" id="photos" accept="image/jpeg,image/png,image/webp" multiple />
+          <div id="photo-preview" style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;"></div>
         </div>
         <div class="mt-6 flex justify-between">
           <button class="btn btn-outline" onclick="showStep(1)">Back</button>
