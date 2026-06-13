@@ -371,7 +371,7 @@ def accept_offer(
                 "message": "No Keep It offer exists for this return request.",
             },
         )
-    if offer.state != KeepItOfferState.PRESENTED:
+    if offer.state not in (KeepItOfferState.PRESENTED, KeepItOfferState.ACCEPTED):
         raise HTTPException(
             status_code=409,
             detail={

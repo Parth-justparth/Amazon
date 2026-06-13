@@ -205,15 +205,16 @@ Property-based tests use Hypothesis with a minimum of 100 examples each, against
     - After scoring, before normal routing: present an offer iff reason is a Minor_Issue_Reason AND score >= keepItMinScore AND a bounded positive `Partial_Refund_Amount` exists (A>0, A<P, A<RLC, A+DIV<=RLC); display amount in order currency; on accept issue partial refund + credit Keep It points + compute carbon, with no label/logistics, recording audit (outcome, amount, customer), bounded to one refund and one credit; on decline or >=1h expiry route to Decision_Engine excluding KEEP_IT
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 8.3, 12.1_
   - [-] 13.2 Write property test for Keep It offer trigger conditions
+  - [x]* 13.2 Write property test for Keep It offer trigger conditions
     - **Property 29: Keep It offer trigger conditions**
     - **Validates: Requirements 11.1**
-  - [~] 13.3 Write property test for partial-refund bounds and net-profit
+  - [x]* 13.3 Write property test for partial-refund bounds and net-profit
     - **Property 30: Partial_Refund_Amount bounds and net-profit invariant**
     - **Validates: Requirements 11.2, 11.3**
-  - [~] 13.4 Write property test for bounded Keep It acceptance side-effects
-    - **Property 31: Keep It acceptance side-effects are bounded**
+  - [x]* 13.4 Write property test for bounded Keep It acceptance side-effects
+    - **Property 31: Keep It acceptance side-effects (amount matches, idempotency)**
     - **Validates: Requirements 11.5, 11.9**
-  - [~] 13.5 Write property test for Keep It decline/expiry routing
+  - [x]* 13.5 Write property test for Keep It decline/expiry routing
     - **Property 32: Keep It decline or expiry routes to the Decision_Engine**
     - **Validates: Requirements 11.6, 11.7**
 
@@ -228,124 +229,124 @@ Property-based tests use Hypothesis with a minimum of 100 examples each, against
     - **Property 44: FBA auto-authorization versus FBM A-to-z platform refund**
     - **Validates: Requirements 19.1, 19.2, 19.3, 19.4, 19.5**
 
-- [ ] 16. DOA verification gate
-  - [ ] 16.1 Implement the DOA gate (extend `app/services/return_initiation.py`)
+- [x] 16. DOA verification gate
+  - [x] 16.1 Implement the DOA gate (extend `app/services/return_initiation.py`)
     - For Mobiles Laptops & Electronics, large-appliance, or brand-requires-verification items, enter `AWAITING_DOA` and withhold approval until a brand-authorized certificate or completed technician outcome confirms DOA; POST `/returns/{id}/doa` records the outcome; non-confirming or absent verification withholds approval with a descriptive message
     - _Requirements: 16.3, 16.4, 16.5, 16.6_
-  - [ ]* 16.2 Write property test for the DOA verification gate
+  - [x]* 16.2 Write property test for the DOA verification gate
     - **Property 40: DOA verification gate**
     - **Validates: Requirements 16.3, 16.4, 16.5, 16.6**
 
-- [ ] 17. Warehouse_Return_Flow
-  - [ ] 17.1 Implement the warehouse flow (`app/services/warehouse_flow.py`)
+- [x] 17. Warehouse_Return_Flow
+  - [x] 17.1 Implement the warehouse flow (`app/services/warehouse_flow.py`)
     - POST `/returns/{id}/warehouse/label`: return the exact message "Standard Return Approved. Please pack the item." and generate a label within 30 s; on failure return `LABEL_GENERATION_FAILED` and keep retry-eligible; POST `/returns/{id}/warehouse/receipt`: mark received, route to Refurbished, trigger full refund on quality-check pass
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
-  - [ ]* 17.2 Write unit tests for warehouse flow edges
+  - [x]* 17.2 Write unit tests for warehouse flow edges
     - Exact-string message, label generation/refurbished routing, label-failure retry, receipt-triggered refund
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 18. Hyperlocal_Marketplace
-  - [ ] 18.1 Implement the marketplace feed and concurrency-safe purchase (`app/services/marketplace.py`)
+- [x] 18. Hyperlocal_Marketplace
+  - [x] 18.1 Implement the marketplace feed and concurrency-safe purchase (`app/services/marketplace.py`)
     - GET `/marketplace?city=`: city-filtered active listings within 3 s, each with item details, photos, score, discounted price, city; POST `/listings/{id}/purchase`: process payment within 30 s, atomic compare-and-set so only one of concurrent buyers wins (loser `LISTING_UNAVAILABLE`, not charged), mark SOLD and remove from feed, return pickup location + contact; on payment failure keep listing active and return `PAYMENT_FAILED`
     - _Requirements: 5.3, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
-  - [ ]* 18.2 Write property test for city-scoped visibility
+  - [x]* 18.2 Write property test for city-scoped visibility
     - **Property 14: City-scoped marketplace visibility**
     - **Validates: Requirements 5.3, 6.1**
-  - [ ]* 18.3 Write property test for listing feed fields
+  - [x]* 18.3 Write property test for listing feed fields
     - **Property 15: Listing feed contains required fields**
     - **Validates: Requirements 6.2**
-  - [ ]* 18.4 Write property test for sold-listing removal and pickup details
+  - [x]* 18.4 Write property test for sold-listing removal and pickup details
     - **Property 16: Sold listing removed and pickup details provided**
     - **Validates: Requirements 6.4, 6.7**
-  - [ ]* 18.5 Write property test for concurrent single-winner purchase
+  - [x]* 18.5 Write property test for concurrent single-winner purchase
     - **Property 17: Concurrent purchase yields a single winner**
     - **Validates: Requirements 6.5**
 
-- [ ] 19. Hyperlocal_Resale_Flow
-  - [ ] 19.1 Implement the resale flow (`app/services/resale_flow.py`)
+- [x] 19. Hyperlocal_Resale_Flow
+  - [x] 19.1 Implement the resale flow (`app/services/resale_flow.py`)
     - On selection create a listing priced strictly below purchase price in the customer's city, instruct keep-at-home for a 48h window starting now, start the scheduler timer; on purchase arrange local pickup, trigger full refund, credit resale points; on window expiry or unserved city re-evaluate excluding HYPERLOCAL_RESALE
     - _Requirements: 5.1, 5.2, 5.4, 5.5, 5.6, 5.7, 5.8_
-  - [ ]* 19.2 Write property test for listing price and 48h window
+  - [x]* 19.2 Write property test for listing price and 48h window
     - **Property 13: Listing price below purchase price within a 48-hour window**
     - **Validates: Requirements 5.1, 5.2**
 
-- [ ] 20. Green_Donation_Flow
-  - [ ] 20.1 Implement the donation flow (`app/services/donation_flow.py`)
+- [x] 20. Green_Donation_Flow
+  - [x] 20.1 Implement the donation flow (`app/services/donation_flow.py`)
     - GET `/returns/{id}/donation/options`: nearest verified bin within 25 km with great-circle distance in km, plus worker-pickup; only worker pickup if no bin in range; POST `/returns/{id}/donation/pickup`: schedule within 5 business days (return date), `SCHEDULING_FAILED` keeps retry-eligible; POST `/returns/{id}/donation/confirm`: on bin drop-off or collection trigger refund + donation points; if no method available re-evaluate
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
-  - [ ]* 20.2 Write property test for nearest bin within radius and distance
+  - [x]* 20.2 Write property test for nearest bin within radius and distance
     - **Property 18: Nearest verified bin within radius with correct distance**
     - **Validates: Requirements 7.1, 7.2, 7.5**
-  - [ ]* 20.3 Write property test for worker-pickup scheduling window
+  - [x]* 20.3 Write property test for worker-pickup scheduling window
     - **Property 19: Worker pickup scheduled within five business days**
     - **Validates: Requirements 7.3**
 
-- [ ] 21. Scheduler
-  - [ ] 21.1 Implement the background scheduler (`app/domain/scheduler.py`)
+- [x] 21. Scheduler
+  - [x] 21.1 Implement the background scheduler (`app/domain/scheduler.py`)
     - Async lifespan/APScheduler timers for the 48h resale-window expiry (re-evaluate), warehouse-receipt 30-day timeout (flag MANUAL), Keep It offer expiry (>=1h, route to Decision_Engine), and FBM seller-auth timeout (apply A-to-z)
     - _Requirements: 4.6, 5.7, 11.7, 19.4_
-  - [ ]* 21.2 Write unit tests for scheduler timers
+  - [x]* 21.2 Write unit tests for scheduler timers
     - Verify each timer fires the correct action at its deadline using controllable clocks
     - _Requirements: 4.6, 5.7, 11.7, 19.4_
 
-- [ ] 22. Checkpoint - Ensure all tests pass
+- [x] 22. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 23. Standard return-flow orchestration and API wiring
-  - [ ] 23.1 Implement the ordered standard return flow (`app/services/return_flow.py`)
+- [x] 23. Standard return-flow orchestration and API wiring
+  - [x] 23.1 Implement the ordered standard return flow (`app/services/return_flow.py`)
     - Enforce the no-skip step order (initiation -> reason -> proof submission -> return action -> pickup address -> inspection -> closure) via `flowStep`, rejecting out-of-order submissions; require routed Proof_Submission (1-10 photos + 1-1000 chars) for damaged reasons within 5 s; present only allowable actions; require Pickup_Address before scheduling for warehouse/replacement/exchange/donation-pickup; record inspection pass/fail (fail -> withhold, flag MANUAL, notify); record closure (final disposition, action fulfilled, refund outcome, carbon) within 5 s
     - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7, 20.8, 20.9_
-  - [ ]* 23.2 Write property test for ordered no-skip flow
+  - [x]* 23.2 Write property test for ordered no-skip flow
     - **Property 45: Ordered no-skip return flow**
     - **Validates: Requirements 20.1**
-  - [ ]* 23.3 Write property test for damaged-return proof submission
+  - [x]* 23.3 Write property test for damaged-return proof submission
     - **Property 46: Damaged returns require routed proof submission**
     - **Validates: Requirements 20.2, 20.7**
-  - [ ]* 23.4 Write property test for pickup-address requirement
+  - [x]* 23.4 Write property test for pickup-address requirement
     - **Property 47: Pickup address required before scheduling**
     - **Validates: Requirements 20.4, 20.8**
-  - [ ]* 23.5 Write property test for inspection outcome handling
+  - [x]* 23.5 Write property test for inspection outcome handling
     - **Property 48: Inspection outcome and failure handling**
     - **Validates: Requirements 20.5, 20.9**
-  - [ ]* 23.6 Write property test for closure record completeness
+  - [x]* 23.6 Write property test for closure record completeness
     - **Property 49: Closure record completeness**
     - **Validates: Requirements 20.6**
-  - [ ] 23.7 Wire all routers into the FastAPI app (`app/main.py`)
+  - [x] 23.7 Wire all routers into the FastAPI app (`app/main.py`)
     - Register all service routers, dependency injection (repository, scheduler, OpenAI client), startup seed loading, and the scheduler lifespan task
     - _Requirements: 1.1, 3.2, 20.1_
 
-- [ ] 24. Web frontend
-  - [ ] 24.1 Build the standard ordered return wizard
+- [x] 24. Web frontend
+  - [x] 24.1 Build the standard ordered return wizard
     - Step-ordered flow consuming the REST API, including the Keep It offer screen (accept/decline) and the carbon-savings impact card
     - _Requirements: 11.4, 12.3, 20.1, 20.2, 20.3, 20.4_
-  - [ ] 24.2 Build the marketplace feed UI
+  - [x] 24.2 Build the marketplace feed UI
     - City-filtered listing feed with item details, photos, score, discounted price, city, and purchase action
     - _Requirements: 6.1, 6.2, 6.3, 6.7_
-  - [ ] 24.3 Build the Green Points / wallet UI
+  - [x] 24.3 Build the Green Points / wallet UI
     - Display balance and redeem points to Amazon Pay
     - _Requirements: 8.4, 9.1, 9.2_
 
-- [ ] 25. Integration and demo verification
-  - [ ] 25.1 Wire the demo scenario orchestration and seed selection
+- [x] 25. Integration and demo verification
+  - [x] 25.1 Wire the demo scenario orchestration and seed selection
     - Pre-wire the three demo scenarios plus Keep It, FBM A-to-z, and PoD runs end-to-end against `STUB_MODE` using the seed datasets
     - _Requirements: 3.3, 3.4, 3.5, 11.1, 17.7, 19.4_
-  - [ ]* 25.2 Write integration tests for the three demo scenarios
+  - [x]* 25.2 Write integration tests for the three demo scenarios
     - Electronics->Warehouse, Home Appliances->Resale, Footwear->Donation full lifecycle (initiation -> assessment -> decision -> disposition -> refund -> points)
     - _Requirements: 3.3, 3.4, 3.5, 4.4, 5.5, 7.4_
-  - [ ]* 25.3 Write the Keep It demo integration test
+  - [x]* 25.3 Write the Keep It demo integration test
     - `item_keepit_01`: score >= threshold -> offer -> accept -> partial refund (11,697 minor) + Keep It points + no label, then carbon impact and closure
     - _Requirements: 11.1, 11.5, 12.1, 20.6_
-  - [ ]* 25.4 Write the FBM A-to-z integration test
+  - [x]* 25.4 Write the FBM A-to-z integration test
     - `ord_1002`: seller-auth window elapses -> platform refund = purchase price with `atozApplied`
     - _Requirements: 19.4_
-  - [ ]* 25.5 Write the Pay-on-Delivery bank-details integration test
+  - [x]* 25.5 Write the Pay-on-Delivery bank-details integration test
     - `ord_1003`: refund withheld -> valid IFSC + account captured (encrypted) -> NEFT refund timeline starts
     - _Requirements: 17.7, 18.1, 18.6_
-  - [ ]* 25.6 Write the marketplace concurrency integration test
+  - [x]* 25.6 Write the marketplace concurrency integration test
     - Simultaneous purchase requests on one listing -> exactly one winner, loser not charged
     - _Requirements: 6.5_
 
-- [ ] 26. Final checkpoint - Ensure all tests pass
+- [x] 26. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

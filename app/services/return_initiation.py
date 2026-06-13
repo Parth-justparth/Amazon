@@ -70,6 +70,8 @@ __all__ = [
     "ACTIVE_STATUSES",
     "SELLER_AUTH_WINDOW_MIN_HOURS",
     "SELLER_AUTH_WINDOW_MAX_HOURS",
+    "DoaVerificationRequest",
+    "record_doa_verification",
 ]
 
 
@@ -540,8 +542,13 @@ def authorize_seller_return(
             ),
         )
 
+    deadline = rr.sellerAuthDeadline
+    if deadline is not None and deadline.tzinfo is None:
+        from datetime import timezone
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    
     window_elapsed = (
-        rr.sellerAuthDeadline is not None and moment > rr.sellerAuthDeadline
+        deadline is not None and moment > deadline
     )
 
     if window_elapsed or not authorized:
@@ -903,7 +910,83 @@ def post_seller_auth(
     return _serialize_seller_auth(result)
 
 
+class DoaVerificationRequest(BaseModel):
+    """POST /returns/{id}/doa request body (R16.4)."""
+
+    source: str
+    confirmsDoa: bool
+
+
+def record_doa_verification(
+    session: Session,
+    returnRequestId: str,
+    source: str,
+    confirmsDoa: bool,
+) -> dict:
+    """Record a DOA verification outcome (R16.4, R16.5)."""
+
+    rr = session.get(ReturnRequest, returnRequestId)
+    if rr is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "RETURN_NOT_FOUND", "message": "Return request not found."},
+        )
+    if rr.doaStatus == DoaStatus.NOT_REQUIRED:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "DOA_NOT_REQUIRED",
+                "message": "DOA verification is not required for this item.",
+            },
+        )
+
+    if source not in ("CERTIFICATE", "TECHNICIAN"):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "INVALID_DOA_SOURCE",
+                "message": "DOA source must be CERTIFICATE or TECHNICIAN.",
+            },
+        )
+
+    if confirmsDoa:
+        rr.doaStatus = DoaStatus.SATISFIED
+        if rr.status == ReturnStatus.AWAITING_DOA:
+            rr.status = ReturnStatus.SCORED
+        session.flush()
+        return {
+            "returnRequestId": rr.returnRequestId,
+            "doaStatus": rr.doaStatus.value,
+            "status": rr.status.value,
+            "message": "DOA verification satisfied.",
+        }
+    else:
+        rr.doaStatus = DoaStatus.FAILED
+        rr.status = ReturnStatus.MANUAL
+        session.flush()
+        return {
+            "returnRequestId": rr.returnRequestId,
+            "doaStatus": rr.doaStatus.value,
+            "status": rr.status.value,
+            "message": "The item did not pass DOA_Verification.",
+        }
+
+
+@router.post("/returns/{returnRequestId}/doa")
+def post_doa(
+    returnRequestId: str,
+    body: DoaVerificationRequest,
+    session: Session = Depends(get_db),
+) -> dict:
+    """Record a DOA verification outcome (R16.4, R16.5)."""
+
+    return record_doa_verification(
+        session, returnRequestId, body.source, body.confirmsDoa
+    )
+
+
 @router.get("/return-reasons")
+
 def get_return_reasons() -> dict:
     """Return the defined list of valid return reasons (R1.2; includes Keep It)."""
 

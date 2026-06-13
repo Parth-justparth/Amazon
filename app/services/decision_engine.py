@@ -430,6 +430,27 @@ def decide_and_record(
     guardrail = guardrail or GuardrailConfig()
     excluded = list(rr.excludedDispositions or [])
 
+    from app.domain.models import DoaStatus
+
+    if rr.doaStatus == DoaStatus.REQUIRED:
+        rr.status = ReturnStatus.AWAITING_DOA
+        session.flush()
+        return DecisionOutcome(
+            ok=False,
+            status_code=422,
+            return_request=rr,
+            error_code="DOA_VERIFICATION_REQUIRED",
+            message="DOA verification is required for this item.",
+        )
+    elif rr.doaStatus == DoaStatus.FAILED:
+        return DecisionOutcome(
+            ok=False,
+            status_code=422,
+            return_request=rr,
+            error_code="DOA_VERIFICATION_FAILED",
+            message="The item did not pass DOA_Verification.",
+        )
+
     # Resolve the authoritative SecondLife_Score (recorded by assessment).
     effective_score = score if score is not None else _latest_score(
         session, rr.returnRequestId
@@ -626,7 +647,19 @@ def post_decision(returnRequestId: str, session: Session = Depends(get_db)) -> d
             detail={"error": "RETURN_NOT_FOUND", "message": "Return request not found."},
         )
 
-    outcome = decide_and_record(session, rr)
+    from app.services.keep_it import evaluate_keep_it
+    
+    # R11.1: Evaluate Keep It first
+    keep_it_eval = evaluate_keep_it(session, rr)
+    
+    if keep_it_eval.presented:
+        return {
+            "returnRequestId": rr.returnRequestId,
+            "status": rr.status.value,
+            "keepItOfferPresented": True,
+        }
+        
+    outcome = keep_it_eval.decision
 
     if outcome.ok and outcome.record is not None:
         return _serialize(rr, outcome.record)

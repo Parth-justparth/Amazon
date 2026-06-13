@@ -428,3 +428,58 @@ def test_property_39_valid_return_condition_confirmation(
             session.close()
     finally:
         engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Property 40 — DOA verification gate
+# ---------------------------------------------------------------------------
+# Feature: secondlife-ai, Property 40: DOA verification gate
+# Validates: Requirements 16.3, 16.4, 16.5, 16.6
+@given(
+    confirms_doa=st.booleans(),
+    source=st.sampled_from(["CERTIFICATE", "TECHNICIAN"]),
+)
+def test_property_40_doa_verification_gate(confirms_doa: bool, source: str) -> None:
+    engine, factory = _make_seeded_factory()
+    try:
+        session = factory()
+        try:
+            from app.domain.models import DoaStatus
+            from app.services.return_initiation import record_doa_verification
+
+            # Create a return request requiring DOA verification
+            rr = ReturnRequest(
+                returnRequestId="rr_doa_test",
+                orderId="ord_1001",
+                itemId="item_elec_01",
+                customerId="cust_01",
+                reason=ReturnReason.DEFECTIVE,
+                returnAction=ReturnAction.REPLACEMENT,
+                status=ReturnStatus.AWAITING_DOA,
+                doaStatus=DoaStatus.REQUIRED,
+                itemCategory=ItemCategory.MOBILES_LAPTOPS_ELECTRONICS,
+                purchasePriceMinor=129900,
+                currency="INR",
+                weightGrams=1200,
+                paymentMethod="UPI",
+                sellerType="FBA",
+                returnWindowStart=date.today(),
+            )
+            session.add(rr)
+            session.flush()
+
+            result = record_doa_verification(session, "rr_doa_test", source, confirms_doa)
+
+            if confirms_doa:
+                assert result["doaStatus"] == DoaStatus.SATISFIED.value
+                assert result["status"] == ReturnStatus.SCORED.value
+                assert "satisfied" in result["message"]
+            else:
+                assert result["doaStatus"] == DoaStatus.FAILED.value
+                assert result["status"] == ReturnStatus.MANUAL.value
+                assert "did not pass" in result["message"]
+
+        finally:
+            session.close()
+    finally:
+        engine.dispose()

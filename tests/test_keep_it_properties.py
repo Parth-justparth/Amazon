@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import uuid
 
-from hypothesis import given
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -103,6 +103,15 @@ def _new_rr(session, *, item_id, order_id, reason, price, weight) -> ReturnReque
         excludedDispositions=[],
     )
     session.add(rr)
+    from app.domain.models import ConditionAssessment
+    rr.conditionAssessment = ConditionAssessment(
+        assessmentId=f"ca_{uuid.uuid4().hex[:10]}",
+        returnRequestId=rr.returnRequestId,
+        secondLifeScore=90,
+        conditionSummary="Pristine condition",
+        photoCount=1
+    )
+    session.add(rr.conditionAssessment)
     session.flush()
     return rr
 
@@ -185,6 +194,128 @@ def test_property_29_keep_it_trigger_conditions(reason, score, item, price, weig
                     )
                 )
                 assert no_offer is None
+        finally:
+            session.close()
+    finally:
+        engine.dispose()
+
+
+# ===========================================================================
+# Property 30 — Partial_Refund_Amount bounds and net-profit invariant
+# ===========================================================================
+# Feature: secondlife-ai, Property 30: Partial_Refund_Amount bounds and net-profit invariant
+# Validates: Requirements 11.2, 11.3
+@given(
+    price=st.integers(min_value=0, max_value=5_000_000),
+    rlc=st.integers(min_value=0, max_value=5_000_000),
+    div=st.integers(min_value=0, max_value=5_000_000),
+)
+def test_property_30_partial_refund_amount_bounds(price, rlc, div):
+    amount = keep_it.compute_partial_refund_amount(price, rlc, div)
+    if amount is not None:
+        # A > 0 (R11.2)
+        assert amount > 0
+        # A < P (R11.2)
+        assert amount < price
+        # A < RLC (R11.2)
+        assert amount < rlc
+        # A + DIV <= RLC (R11.3)
+        assert amount + div <= rlc
+    else:
+        # If None, it means no valid amount exists satisfying bounds
+        cap = rlc - div
+        upper = min(price - 1, rlc - 1, cap)
+        assert upper < 1
+
+
+# ===========================================================================
+# Property 31 — Keep It acceptance side-effects are bounded
+# ===========================================================================
+# Feature: secondlife-ai, Property 31: Keep It acceptance side-effects are bounded
+# Validates: Requirements 11.5, 11.9
+@settings(suppress_health_check=[HealthCheck.filter_too_much])
+@given(
+    item=st.sampled_from(list(_DEMO.keys())),
+    score=st.integers(min_value=80, max_value=100),
+)
+def test_property_31_keep_it_acceptance_side_effects(item, score):
+    engine, factory = _make_seeded_factory()
+    try:
+        session = factory()
+        try:
+            rr = _new_rr(
+                session,
+                item_id=item,
+                order_id=_DEMO[item],
+                reason=ReturnReason.MINOR_DEFECT,
+                price=10000,
+                weight=50000,
+            )
+            
+            eval_result = keep_it.evaluate_keep_it(session, rr, score=score, client=_client())
+            assume(eval_result.presented)
+            
+            # Accept the offer
+            accept_outcome = keep_it.accept_offer(session, rr)
+            
+            assert accept_outcome.offer.state == KeepItOfferState.ACCEPTED
+            assert accept_outcome.refund is not None
+            assert accept_outcome.refund.amountMinor == eval_result.offer.partialRefundAmountMinor
+            
+            # Accept again -> idempotent (R11.9) - bounded side-effects
+            accept_outcome_2 = keep_it.accept_offer(session, rr)
+            assert accept_outcome_2.points_credited == 0
+            assert accept_outcome_2.refund.amountMinor == accept_outcome.refund.amountMinor
+            
+        finally:
+            session.close()
+    finally:
+        engine.dispose()
+
+
+# ===========================================================================
+# Property 32 — Keep It decline or expiry routes to the Decision_Engine
+# ===========================================================================
+# Feature: secondlife-ai, Property 32: Keep It decline or expiry routes to the Decision_Engine
+# Validates: Requirements 11.6, 11.7
+@settings(suppress_health_check=[HealthCheck.filter_too_much])
+@given(
+    item=st.sampled_from(list(_DEMO.keys())),
+    score=st.integers(min_value=80, max_value=100),
+    action=st.sampled_from(["DECLINE", "EXPIRE"]),
+)
+def test_property_32_keep_it_decline_expiry_routes(item, score, action):
+    engine, factory = _make_seeded_factory()
+    try:
+        session = factory()
+        try:
+            rr = _new_rr(
+                session,
+                item_id=item,
+                order_id=_DEMO[item],
+                reason=ReturnReason.MINOR_DEFECT,
+                price=10000,
+                weight=50000,
+            )
+            
+            eval_result = keep_it.evaluate_keep_it(session, rr, score=score, client=_client())
+            assume(eval_result.presented)
+
+            if action == "DECLINE":
+                decision = keep_it.decline_offer(session, rr, client=_client())
+                expected_state = KeepItOfferState.DECLINED
+            else:
+                decision = keep_it.expire_offer(session, rr, client=_client())
+                expected_state = KeepItOfferState.EXPIRED
+            
+            offer = session.scalar(select(KeepItOffer).where(KeepItOffer.returnRequestId == rr.returnRequestId))
+            assert offer.state == expected_state
+            
+            assert decision is not None
+            assert decision.ok
+            assert decision.final != Disposition.KEEP_IT
+            assert "KEEP_IT" in (rr.excludedDispositions or [])
+            
         finally:
             session.close()
     finally:

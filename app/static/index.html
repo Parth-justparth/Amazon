@@ -3,153 +3,152 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SecondLife AI — Return Initiation (manual test)</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 900px; color: #1a1a1a; }
-    h1 { font-size: 1.4rem; }
-    section { border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
-    h2 { font-size: 1.05rem; margin-top: 0; }
-    label { display: inline-block; min-width: 160px; margin: 0.2rem 0; }
-    input, select { padding: 0.25rem 0.4rem; min-width: 220px; }
-    .row { margin: 0.35rem 0; }
-    .checks label { min-width: 110px; }
-    button { padding: 0.45rem 0.9rem; cursor: pointer; border-radius: 6px; border: 1px solid #888; background: #f6f6f6; }
-    button:hover { background: #eee; }
-    pre { background: #0f172a; color: #e2e8f0; padding: 0.8rem; border-radius: 6px; overflow: auto; max-height: 320px; }
-    small { color: #555; }
-  </style>
+  <title>SecondLife AI — Return Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body>
-  <h1>SecondLife AI — Return Initiation</h1>
-  <p><small>Minimal manual-test page. Calls the live API with <code>fetch()</code>. Not a production UI.</small></p>
-
-  <section>
-    <h2>GET /return-reasons</h2>
-    <button onclick="getReasons()">Load valid return reasons</button>
-  </section>
-
-  <section>
-    <h2>GET /categories/{category}/policy</h2>
-    <div class="row">
-      <label for="cat">Category</label>
-      <select id="cat">
-        <option>ELECTRONICS</option>
-        <option>HOME_APPLIANCES</option>
-        <option>FOOTWEAR</option>
-        <option>MOBILES_LAPTOPS_ELECTRONICS</option>
-        <option>CLOTHING_FOOTWEAR</option>
-        <option>BOOKS</option>
-        <option>HOME_KITCHEN_APPLIANCES</option>
-        <option>GROCERY_PERISHABLES</option>
-        <option>BEAUTY_PERSONAL_CARE</option>
-        <option>SOFTWARE_VIDEO_GAMES_MUSIC</option>
-      </select>
+  <nav class="navbar">
+    <div class="brand">SecondLife <span>AI</span></div>
+    <div class="nav-links">
+      <a href="/" class="active">Return Portal</a>
+      <a href="/static/marketplace.html">Marketplace</a>
+      <a href="/static/wallet.html">Wallet</a>
     </div>
-    <button onclick="getPolicy()">Load category policy</button>
-  </section>
+  </nav>
 
-  <section>
-    <h2>POST /returns — initiate a return</h2>
-    <div class="row"><label for="orderId">orderId</label><input id="orderId" value="ord_1001" /></div>
-    <div class="row"><label for="itemId">itemId</label><input id="itemId" value="item_elec_01" /></div>
-    <div class="row"><label for="customerId">customerId</label><input id="customerId" value="cust_01" /></div>
-    <div class="row">
-      <label for="reason">reason</label>
-      <select id="reason">
-        <option>DEFECTIVE</option>
-        <option>DAMAGED_IN_TRANSIT</option>
-        <option>MINOR_DEFECT</option>
-        <option>COLOR_APPEARANCE_NOT_AS_EXPECTED</option>
-        <option>WRONG_ITEM</option>
-        <option>NOT_AS_DESCRIBED</option>
-        <option>NO_LONGER_NEEDED</option>
-        <option>SIZE_OR_FIT</option>
-        <option>SPOILED_OR_EXPIRED</option>
-      </select>
-    </div>
-    <div class="row">
-      <label for="returnAction">returnAction</label>
-      <select id="returnAction">
-        <option>REPLACEMENT</option>
-        <option>REFUND</option>
-        <option>EXCHANGE</option>
-      </select>
-    </div>
-    <div class="row checks">
-      <label><input type="checkbox" id="packaging" checked /> packaging</label>
-      <label><input type="checkbox" id="tags" checked /> tags</label>
-      <label><input type="checkbox" id="warrantyCard" checked /> warrantyCard</label>
-      <label><input type="checkbox" id="manuals" checked /> manuals</label>
-      <label><input type="checkbox" id="accessories" checked /> accessories</label>
-    </div>
-    <div class="row">
-      <label><input type="checkbox" id="damageProofProvided" checked /> damageProofProvided</label>
-    </div>
-    <div class="row">
-      <label for="submittedAt">submittedAt</label>
-      <input id="submittedAt" value="2025-01-15" />
-      <small>seed delivery dates are early 2025; keep this inside the window</small>
-    </div>
-    <button onclick="postReturn()">Initiate return</button>
-  </section>
+  <div class="container" id="app">
+    <div class="glass-panel" id="wizard-container">
+      
+      <!-- Step 1: Initiation -->
+      <div id="step-1" class="animate-fade-in">
+        <h2 class="mb-4">Initiate a Return</h2>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Order ID</label>
+            <input type="text" id="orderId" value="ord_1004" />
+          </div>
+          <div class="form-group">
+            <label>Item ID (e.g. item_keepit_01)</label>
+            <input type="text" id="itemId" value="item_keepit_01" />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Customer ID</label>
+            <input type="text" id="customerId" value="cust_01" />
+          </div>
+          <div class="form-group">
+            <label>Return Reason</label>
+            <select id="reason">
+              <option value="MINOR_DEFECT">Minor Defect (Keep It Demo)</option>
+              <option value="DEFECTIVE">Defective (Warehouse Demo)</option>
+              <option value="SIZE_OR_FIT">Size or Fit (Donation Demo)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Return Action</label>
+            <select id="returnAction">
+              <option value="REPLACEMENT">Replacement</option>
+              <option value="REFUND">Refund</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date (Seed Window)</label>
+            <input type="text" id="submittedAt" value="2025-01-10" />
+          </div>
+        </div>
+        <div class="form-group mt-4">
+          <label>Condition Confirmation (Select All Applicable)</label>
+          <div class="checkbox-grid checks">
+            <label class="checkbox-label"><input type="checkbox" id="packaging" checked /> Packaging</label>
+            <label class="checkbox-label"><input type="checkbox" id="tags" checked /> Tags</label>
+            <label class="checkbox-label"><input type="checkbox" id="warrantyCard" checked /> Warranty Card</label>
+            <label class="checkbox-label"><input type="checkbox" id="manuals" checked /> Manuals</label>
+            <label class="checkbox-label"><input type="checkbox" id="accessories" checked /> Accessories</label>
+            <label class="checkbox-label"><input type="checkbox" id="damageProofProvided" checked /> Damage Proof</label>
+          </div>
+        </div>
+        <div class="mt-6 text-center">
+          <button class="btn btn-primary" onclick="initiateReturn()">Continue to Assessment</button>
+        </div>
+      </div>
 
-  <section>
-    <h2>GET /returns/{id}</h2>
-    <div class="row"><label for="rrId">returnRequestId</label><input id="rrId" placeholder="rr_..." /></div>
-    <button onclick="getReturn()">Fetch return state</button>
-  </section>
+      <!-- Step 2: Assessment -->
+      <div id="step-2" class="hidden animate-fade-in">
+        <h2 class="mb-4">Condition Assessment</h2>
+        <p class="mb-4 text-secondary">Upload photos of the item. For the demo, select a pre-configured photo set.</p>
+        <div class="form-group">
+          <label>Photo Set (STUB_MODE)</label>
+          <select id="photoSet">
+            <option value="photos_appl_likenew">Appliance: Like New (Score ~85)</option>
+            <option value="photos_elec_pristine">Electronics: Pristine (Score ~95)</option>
+            <option value="photos_foot_worn">Footwear: Worn/Dirty (Score ~20)</option>
+          </select>
+        </div>
+        <div class="mt-6 flex justify-between">
+          <button class="btn btn-outline" onclick="showStep(1)">Back</button>
+          <button class="btn btn-primary" onclick="submitAssessment()">Analyze AI Score</button>
+        </div>
+      </div>
 
-  <h2>Response</h2>
-  <pre id="out">(responses appear here)</pre>
+      <!-- Step 3: Processing -->
+      <div id="step-3" class="hidden animate-fade-in text-center">
+        <h2 class="mb-4">SecondLife AI Processing...</h2>
+        <div class="loader" style="margin: 2rem auto; width: 48px; height: 48px;"></div>
+        <p class="text-secondary">Analyzing condition, computing environmental impact, and determining optimal disposition.</p>
+      </div>
 
-  <script>
-    const out = document.getElementById("out");
-    function show(status, data) {
-      out.textContent = "HTTP " + status + "\n" + JSON.stringify(data, null, 2);
-    }
-    async function call(method, url, body) {
-      try {
-        const opts = { method, headers: { "Content-Type": "application/json" } };
-        if (body) opts.body = JSON.stringify(body);
-        const res = await fetch(url, opts);
-        const data = await res.json().catch(() => ({}));
-        show(res.status, data);
-        return { res, data };
-      } catch (e) {
-        out.textContent = "Request failed: " + e;
-      }
-    }
-    function getReasons() { call("GET", "/return-reasons"); }
-    function getPolicy() {
-      const c = document.getElementById("cat").value;
-      call("GET", "/categories/" + encodeURIComponent(c) + "/policy");
-    }
-    async function postReturn() {
-      const body = {
-        orderId: document.getElementById("orderId").value,
-        itemId: document.getElementById("itemId").value,
-        customerId: document.getElementById("customerId").value,
-        reason: document.getElementById("reason").value,
-        returnAction: document.getElementById("returnAction").value,
-        validConditionConfirmed: {
-          packaging: document.getElementById("packaging").checked,
-          tags: document.getElementById("tags").checked,
-          warrantyCard: document.getElementById("warrantyCard").checked,
-          manuals: document.getElementById("manuals").checked,
-          accessories: document.getElementById("accessories").checked
-        },
-        damageProofProvided: document.getElementById("damageProofProvided").checked,
-        submittedAt: document.getElementById("submittedAt").value
-      };
-      const r = await call("POST", "/returns", body);
-      if (r && r.data && r.data.returnRequestId) {
-        document.getElementById("rrId").value = r.data.returnRequestId;
-      }
-    }
-    function getReturn() {
-      const id = document.getElementById("rrId").value;
-      call("GET", "/returns/" + encodeURIComponent(id));
-    }
-  </script>
+      <!-- Step 4: Decision / Keep It Offer -->
+      <div id="step-4" class="hidden animate-fade-in">
+        <!-- Normal Decision View -->
+        <div id="decision-view" class="hidden text-center">
+          <h2 class="mb-4">Return Disposition</h2>
+          <div class="glass-panel" style="background: rgba(139, 92, 246, 0.1); border-color: var(--accent-purple);">
+            <h3 id="disposition-text" style="color: var(--accent-purple); font-size: 1.5rem;" class="mb-2"></h3>
+            <p id="decision-desc" class="text-secondary"></p>
+          </div>
+          <div class="mt-6">
+            <button class="btn btn-outline" onclick="location.reload()">Start Over</button>
+          </div>
+        </div>
+
+        <!-- Keep It Offer View -->
+        <div id="keep-it-view" class="hidden">
+          <div class="impact-card glass-panel animate-fade-in mb-6">
+            <h2 style="color: #fff">Wait! Keep It & Save the Planet 🌍</h2>
+            <p class="text-secondary mt-2">Instead of returning, keep the item for a partial refund and earn Green Points.</p>
+            <div class="impact-value" id="offer-amount">₹0.00</div>
+            <p>Partial Refund to Original Payment Method</p>
+          </div>
+          <div class="flex justify-between gap-4 mt-6">
+            <button class="btn btn-outline" style="flex:1" onclick="declineKeepIt()">No, Continue Return</button>
+            <button class="btn btn-success" style="flex:1" onclick="acceptKeepIt()">Accept Offer</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5: Carbon Impact Card -->
+      <div id="step-5" class="hidden animate-fade-in">
+        <div class="impact-card glass-panel" style="padding: 3rem;">
+          <h2 style="color: #fff">Thank You! 🌱</h2>
+          <div class="impact-value" id="carbon-saved" style="font-size: 3.5rem;">0 kg</div>
+          <p style="font-size: 1.25rem;">of CO₂ emissions saved</p>
+          <div class="mt-6">
+            <p class="text-secondary">You also earned <span id="points-earned" style="color: var(--accent-green); font-weight: bold;"></span> Green Points!</p>
+          </div>
+          <div class="mt-6">
+            <button class="btn btn-outline" onclick="location.reload()">Return Home</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/wizard.js"></script>
 </body>
 </html>
