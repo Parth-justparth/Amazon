@@ -74,6 +74,7 @@ def get_marketplace_feed(
             "listingId": listing.listingId,
             "returnRequestId": listing.returnRequestId,
             "itemCategory": rr.itemCategory.value,
+            "productClassification": item.productClassification if item is not None else None,
             "itemTitle": item.title if item is not None else None,
             "originalPriceMinor": item.purchasePriceMinor if item is not None else None,
             "discountedPriceMinor": listing.discountedPriceMinor,
