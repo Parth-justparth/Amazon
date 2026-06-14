@@ -50,6 +50,7 @@ from sqlalchemy.orm import Session
 
 from app.domain.models import (
     ConditionAssessment,
+    DAMAGED_REASONS,
     DecisionSource,
     Disposition,
     DispositionRecord,
@@ -58,6 +59,7 @@ from app.domain.models import (
     ReturnRequest,
     ReturnStatus,
 )
+from app.config import get_settings
 from app.domain.money import to_iso8601
 from app.domain.repository import get_session_factory
 from app.fixtures.seed_data import (
@@ -65,6 +67,7 @@ from app.fixtures.seed_data import (
     DEMO_TO_POLICY_CATEGORY,
 )
 from app.integrations.openai_client import (
+    LLMUnavailable,
     OpenAIVisionClient,
     VALID_DISPOSITIONS,
     get_vision_client,
@@ -384,6 +387,50 @@ def _new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
+# ---------------------------------------------------------------------------
+# Condition completeness + reason → "sell as new" eligibility / depreciation
+# ---------------------------------------------------------------------------
+
+_ESSENTIAL_CONDITION = ("packaging", "tags", "warrantyCard", "accessories")
+_CONDITION_PENALTY = {"packaging": 0.06, "tags": 0.03, "warrantyCard": 0.08, "accessories": 0.05}
+
+
+def _condition_factor(confirmed: dict | None) -> tuple[float, list[str]]:
+    """Return (value_retention_factor, missing_elements) from condition ticks.
+
+    Missing original packaging/tags/warranty/accessories depreciate the item's
+    recoverable value (and block resale-as-new). Floor at 0.5.
+    """
+
+    vc = confirmed or {}
+    missing = [k for k in _ESSENTIAL_CONDITION if not vc.get(k)]
+    factor = 1.0 - sum(_CONDITION_PENALTY[k] for k in missing)
+    return max(0.5, factor), missing
+
+
+def _sell_as_new_blocked(
+    rr: ReturnRequest, score: int, missing: list[str]
+) -> tuple[bool, str | None]:
+    """Whether the item may NOT be resold as new (warehouse), with a reason."""
+
+    if rr.reason in DAMAGED_REASONS:
+        return True, (
+            "Reported as defective/damaged, so it cannot be restocked as new — "
+            "routing to the best second-life channel instead."
+        )
+    if missing:
+        return True, (
+            "Missing original " + ", ".join(missing) + ", so it cannot be sold as "
+            "new — considering local resale or donation."
+        )
+    if score < 85:
+        return True, (
+            "Condition is not pristine enough to restock as new — considering "
+            "local resale or donation."
+        )
+    return False, None
+
+
 def _latest_score(session: Session, return_request_id: str) -> int | None:
     """Return the most recent recorded SecondLife_Score, or None if unscored."""
 
@@ -396,8 +443,19 @@ def _latest_score(session: Session, return_request_id: str) -> int | None:
 
 
 def _photo_set(session: Session, rr: ReturnRequest) -> str:
-    """Resolve the photo-set key driving the STUB_MODE decision call."""
+    """Resolve the images driving the decision call.
 
+    In live mode the uploaded photos (persisted by the assessment step) are
+    re-read and joined with ``|`` so the vision model sees every angle. In stub
+    mode the item's fixture key is returned unchanged.
+    """
+
+    if not get_settings().stub_mode:
+        from app.services.condition_assessment import uploaded_image_paths
+
+        paths = uploaded_image_paths(rr.returnRequestId)
+        if paths:
+            return "|".join(paths)
     item = session.get(Item, rr.itemId)
     refs = (item.photoRefs if item is not None else None) or []
     return refs[0] if refs else ""
@@ -469,6 +527,22 @@ def decide_and_record(
         else None
     )
 
+    # Live mode: condition completeness + return reason depreciate the recovered
+    # value and gate "resell as new" (WAREHOUSE). A defective/used/incomplete
+    # item is steered to resale/donation. Tests run in stub mode and keep the
+    # original, deterministic behavior.
+    sell_as_new_note: str | None = None
+    condition_complete = True
+    if not get_settings().stub_mode and effective_score is not None and div is not None:
+        factor, missing = _condition_factor(rr.validConditionConfirmed)
+        condition_complete = not missing
+        if factor < 1.0:
+            div = int(div * factor)
+        blocked, why = _sell_as_new_blocked(rr, effective_score, missing)
+        if blocked and Disposition.WAREHOUSE_RETURN.value not in excluded:
+            excluded = excluded + [Disposition.WAREHOUSE_RETURN.value]
+            sell_as_new_note = why
+
     # Always compute the deterministic rule-based shadow/fallback first.
     rule_result = decide_rule_based(
         effective_score, rlc, div, weight_grams, category, excluded
@@ -498,6 +572,10 @@ def decide_and_record(
             item_context={
                 "category": category.value,
                 "title": "",
+                "reason": rr.reason.value,
+                "returnAction": rr.returnAction.value,
+                "score": effective_score,
+                "conditionComplete": condition_complete,
                 "purchasePriceMinor": price,
                 "currency": rr.currency,
                 "weightGrams": weight_grams,
@@ -515,12 +593,14 @@ def decide_and_record(
         else:
             llm_disposition = validated
             final, source = validated, DecisionSource.LLM
-    except (TimeoutError, InvalidDisposition, LLMDecisionError):
+    except (TimeoutError, InvalidDisposition, LLMDecisionError, LLMUnavailable):
         # On failure the LLM contributes nothing to the audit (null fields).
         llm_disposition, reasoning = None, None
         final, source = rule_disposition, DecisionSource.RULE_FALLBACK
 
     # Record exactly one decision: replace any prior record (re-evaluation).
+    if sell_as_new_note:
+        reasoning = sell_as_new_note + (f" {reasoning}" if reasoning else "")
     existing = session.scalar(
         select(DispositionRecord).where(
             DispositionRecord.returnRequestId == rr.returnRequestId

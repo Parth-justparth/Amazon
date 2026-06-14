@@ -4,8 +4,15 @@ renderChrome("wallet");
 
 let balance = 0;
 
+// Honor ?c=<customerId> deep-link from the return flow.
+const _params = new URLSearchParams(location.search);
+if (_params.get("c")) {
+  const el = document.getElementById("customerId");
+  if (el) el.value = _params.get("c");
+}
+
 function cid() {
-  return document.getElementById("customerId").value;
+  return document.getElementById("customerId").value.trim();
 }
 
 async function loadBalance() {

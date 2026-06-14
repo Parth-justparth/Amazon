@@ -31,11 +31,13 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.domain.models import (
     ConditionAssessment,
     Item,
@@ -46,8 +48,23 @@ from app.domain.repository import get_session_factory
 from app.integrations.openai_client import (
     AssessmentFailed,
     OpenAIVisionClient,
+    ProductMismatch,
     get_vision_client,
 )
+
+#: Directory where uploaded return photos are persisted (re-read by the
+#: decision engine so it sees the same images the assessment scored).
+UPLOAD_DIR = Path("uploads")
+#: In live mode require multiple angles for a trustworthy assessment.
+MIN_LIVE_PHOTOS = 3
+
+
+def uploaded_image_paths(return_request_id: str) -> list[str]:
+    """Absolute paths of photos uploaded for a return request (sorted)."""
+
+    if not UPLOAD_DIR.exists():
+        return []
+    return sorted(str(p.resolve()) for p in UPLOAD_DIR.glob(f"{return_request_id}_*.img"))
 
 __all__ = [
     "router",
@@ -137,6 +154,9 @@ class AssessmentOutcome:
     assessment: ConditionAssessment | None = None
     error_code: str | None = None
     message: str | None = None
+    matches_product: bool = True
+    defects: tuple[str, ...] = ()
+    sellable_as_new: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -236,18 +256,31 @@ def score_return(
         )
 
     # Resolve the photo set: explicit override, else the item's first photoRef.
+    item = session.get(Item, rr.itemId)
     photo_set = photo_set_override
     if photo_set is None:
-        item = session.get(Item, rr.itemId)
         refs = (item.photoRefs if item is not None else None) or []
         photo_set = refs[0] if refs else ""
 
     vision = client or get_vision_client()
 
-    # 4. Score within 30 s (STUB_MODE returns instantly). Unscorable -> R2.7.
+    item_context = {
+        "category": rr.itemCategory.value,
+        "title": item.title if item is not None else "",
+        "productClassification": item.productClassification if item is not None else "",
+    }
+
+    # 4. Score within 30 s (STUB_MODE returns instantly). Unscorable -> R2.7;
+    #    a wrong product -> PRODUCT_MISMATCH (R2 integrity).
     try:
-        result = vision.assess_condition(
-            photo_set, item_context={"category": rr.itemCategory.value}
+        result = vision.assess_condition(photo_set, item_context=item_context)
+    except ProductMismatch as exc:
+        return AssessmentOutcome(
+            ok=False,
+            status_code=422,
+            error_code="PRODUCT_MISMATCH",
+            message=str(exc),
+            matches_product=False,
         )
     except AssessmentFailed as exc:
         return AssessmentOutcome(
@@ -259,11 +292,14 @@ def score_return(
         )
 
     # 5. Persist the assessment and advance to SCORED.
+    summary = result.conditionSummary
+    if getattr(result, "defects", None):
+        summary = (summary + " Defects: " + "; ".join(result.defects))[:500]
     assessment = ConditionAssessment(
         assessmentId=_new_id("ca"),
         returnRequestId=rr.returnRequestId,
         secondLifeScore=result.secondLifeScore,
-        conditionSummary=result.conditionSummary,
+        conditionSummary=summary,
         photoCount=len(photo_descriptors),
         modelVersion=result.modelVersion,
     )
@@ -271,7 +307,14 @@ def score_return(
     rr.status = ReturnStatus.SCORED
     session.flush()
 
-    return AssessmentOutcome(ok=True, status_code=200, assessment=assessment)
+    return AssessmentOutcome(
+        ok=True,
+        status_code=200,
+        assessment=assessment,
+        matches_product=getattr(result, "matchesProduct", True),
+        defects=tuple(getattr(result, "defects", ()) or ()),
+        sellable_as_new=getattr(result, "sellableAsNew", True),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -316,14 +359,17 @@ class AssessmentRequest(BaseModel):
     photoSet: str | None = None
 
 
-def _serialize(rr: ReturnRequest, assessment: ConditionAssessment) -> dict:
-    """Render the design's 200 assessment response."""
+def _serialize(rr: ReturnRequest, assessment: ConditionAssessment, outcome: "AssessmentOutcome") -> dict:
+    """Render the assessment 200 response (incl. defects + sellable flag)."""
 
     return {
         "returnRequestId": rr.returnRequestId,
         "secondLifeScore": assessment.secondLifeScore,
         "conditionSummary": assessment.conditionSummary,
         "status": rr.status.value,
+        "matchesProduct": outcome.matches_product,
+        "defects": list(outcome.defects),
+        "sellableAsNew": outcome.sellable_as_new,
     }
 
 
@@ -333,36 +379,54 @@ def post_assessment(
     body: AssessmentRequest,
     session: Session = Depends(get_db),
 ) -> dict:
-    """Assess 1-10 uploaded photos and produce the SecondLife_Score (R2)."""
+    """Assess uploaded photos: verify product identity + produce the score (R2)."""
 
-    import os
-    from pathlib import Path
+    import base64
+
+    live = not get_settings().stub_mode
+
+    # In live mode we need real images from multiple angles for a trustworthy
+    # product-match + condition assessment.
+    if live:
+        with_data = [p for p in body.photos if p.base64Data]
+        if len(with_data) < MIN_LIVE_PHOTOS:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "MORE_PHOTOS_REQUIRED",
+                    "message": f"Please upload at least {MIN_LIVE_PHOTOS} clear photos "
+                    "from different angles so the item can be verified and graded.",
+                },
+            )
 
     descriptors = [
         PhotoDescriptor(fmt=p.format, size_bytes=p.sizeBytes) for p in body.photos
     ]
-    
-    # Pre-save photos to disk if base64Data is present
-    photo_paths = []
-    upload_dir = Path("scratch/uploads")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    for i, p in enumerate(body.photos):
-        if p.base64Data:
-            # Strip data URI header if present
-            b64_str = p.base64Data
-            if "," in b64_str:
-                b64_str = b64_str.split(",", 1)[1]
-                
-            import base64
-            img_data = base64.b64decode(b64_str)
-            file_path = upload_dir / f"{returnRequestId}_{i}.img"
+
+    # Persist uploaded photos to disk so both the assessment and the later
+    # decision call analyze the exact same images.
+    photo_paths: list[str] = []
+    if any(p.base64Data for p in body.photos):
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        # Clear any prior uploads for this return so re-assessment is clean.
+        for old in UPLOAD_DIR.glob(f"{returnRequestId}_*.img"):
+            try:
+                old.unlink()
+            except OSError:
+                pass
+        for i, p in enumerate(body.photos):
+            if not p.base64Data:
+                continue
+            b64_str = p.base64Data.split(",", 1)[1] if "," in p.base64Data else p.base64Data
+            try:
+                img_data = base64.b64decode(b64_str)
+            except Exception:
+                continue
+            file_path = UPLOAD_DIR / f"{returnRequestId}_{i}.img"
             with open(file_path, "wb") as f:
                 f.write(img_data)
-            photo_paths.append(str(file_path.absolute()))
+            photo_paths.append(str(file_path.resolve()))
 
-    # If we have real photo paths, join them with a separator as the photoSet string
-    # so we can pass them all to the vision client.
     override_set = "|".join(photo_paths) if photo_paths else body.photoSet
 
     outcome = score_return(
@@ -374,11 +438,7 @@ def post_assessment(
 
     if outcome.ok and outcome.assessment is not None:
         rr = session.get(ReturnRequest, returnRequestId)
-        if photo_paths:
-            rr.photoRefs = photo_paths # Update the actual return request with the local files
-            session.flush()
-            
-        return _serialize(rr, outcome.assessment)
+        return _serialize(rr, outcome.assessment, outcome)
 
     raise HTTPException(
         status_code=outcome.status_code,

@@ -346,10 +346,12 @@ __all__ = [
 # ===========================================================================
 
 import random as _random
+from datetime import date as _date, timedelta as _timedelta
 
 from app.domain.models import ReturnAction as _ReturnAction
 
 _rng = _random.Random(20240614)
+_TODAY = _date.today()
 
 # --- More served cities (marketplace + donation coverage) ------------------
 CITIES.extend([
@@ -447,6 +449,21 @@ _PM_CYCLE = list(PaymentMethod)
 # Mostly FBA so flows are smooth; ~1 in 4 is FBM (exercises seller-auth/A-to-z).
 _SELLER_CYCLE = [SellerType.FBA, SellerType.FBA, SellerType.FBA, SellerType.FBM]
 
+_CAT_WINDOW = {
+    ItemCategory.ELECTRONICS: 7,
+    ItemCategory.HOME_APPLIANCES: 10,
+    ItemCategory.FOOTWEAR: 30,
+}
+
+
+def _recent_delivery(cat) -> _date:
+    """A delivery date relative to today: mostly in-window, ~1 in 7 expired."""
+    win = _CAT_WINDOW.get(cat, 14)
+    if _rng.random() < 0.15:  # intentionally past the window (demo rejection)
+        return _TODAY - _timedelta(days=win + _rng.randint(2, 25))
+    return _TODAY - _timedelta(days=_rng.randint(0, max(1, win - 2)))
+
+
 _BULK_ORDERS = []
 _BULK_ITEMS = []
 for _n in range(150):
@@ -459,7 +476,7 @@ for _n in range(150):
     _iid = f"item_cat_{_n:04d}"
     _BULK_ORDERS.append({
         "orderId": _oid, "customerId": _cust,
-        "deliveryDate": date(2025, (_n % 12) + 1, (_n % 27) + 1),
+        "deliveryDate": _recent_delivery(_cat),
         "currency": INR, "paymentMethod": _PM_CYCLE[_n % len(_PM_CYCLE)],
         "sellerType": _SELLER_CYCLE[_n % len(_SELLER_CYCLE)],
     })

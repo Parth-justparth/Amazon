@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import func as sa_func, select, update
 from sqlalchemy.orm import Session
 
 from app.domain.models import (
@@ -24,15 +24,38 @@ from app.services.return_initiation import get_db
 router = APIRouter(tags=["marketplace"])
 
 
+@router.get("/marketplace/cities")
+def get_marketplace_cities(session: Session = Depends(get_db)) -> dict:
+    """Return the cities that currently have active listings (+ counts)."""
+
+    rows = session.execute(
+        select(MarketplaceListing.city, sa_func.count())
+        .where(MarketplaceListing.status == ListingStatus.ACTIVE)
+        .group_by(MarketplaceListing.city)
+        .order_by(MarketplaceListing.city)
+    ).all()
+    total = sum(n for _, n in rows)
+    return {"total": total, "cities": [{"city": c, "count": n} for c, n in rows]}
+
+
 @router.get("/marketplace")
-def get_marketplace_feed(city: str, session: Session = Depends(get_db)) -> dict:
-    """Return active marketplace listings for a specific city (R6.1, R6.2)."""
+def get_marketplace_feed(
+    city: str | None = None, session: Session = Depends(get_db)
+) -> dict:
+    """Return active marketplace listings (all cities, or one city) (R6.1, R6.2).
+
+    ``city`` is optional: when omitted (or "ALL") every active listing is
+    returned, so an item routed to resale always appears regardless of which
+    city its seller is in.
+    """
+
+    conditions = [MarketplaceListing.status == ListingStatus.ACTIVE]
+    if city and city.upper() != "ALL":
+        conditions.append(MarketplaceListing.city == city)
 
     listings = session.scalars(
-        select(MarketplaceListing).where(
-            MarketplaceListing.city == city,
-            MarketplaceListing.status == ListingStatus.ACTIVE,
-        )
+        select(MarketplaceListing).where(*conditions)
+        .order_by(MarketplaceListing.windowStartAt.desc())
     ).all()
 
     feed = []
@@ -41,6 +64,12 @@ def get_marketplace_feed(city: str, session: Session = Depends(get_db)) -> dict:
         if rr is None:
             continue
         item = session.get(Item, rr.itemId)
+        _reason_txt = rr.reason.value.replace("_", " ").lower()
+        why = (
+            f"Returned ({_reason_txt}) and graded "
+            f"{listing.secondLifeScore}/100 by AI — in great shape but can't be sold "
+            "as new, so it's offered locally to give it a second life and cut waste."
+        )
         feed.append({
             "listingId": listing.listingId,
             "returnRequestId": listing.returnRequestId,
@@ -50,6 +79,8 @@ def get_marketplace_feed(city: str, session: Session = Depends(get_db)) -> dict:
             "discountedPriceMinor": listing.discountedPriceMinor,
             "currency": listing.currency,
             "secondLifeScore": listing.secondLifeScore,
+            "reason": rr.reason.value,
+            "why": why,
             "photoRefs": listing.photoRefs,
             "city": listing.city,
             "status": listing.status.value,

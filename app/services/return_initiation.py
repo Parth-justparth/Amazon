@@ -39,8 +39,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain import policy
+from app.config import get_settings
 from app.domain.models import (
     DAMAGED_REASONS,
+    Customer,
     DispositionRecord,
     DoaStatus,
     FlowStep,
@@ -283,24 +285,30 @@ def initiate_return(
             created=False, status_code=422, error_code=code, message=message
         )
 
-    # Step 5: Valid_Return_Condition confirmation (all elements must be true).
+    # Step 5: Valid_Return_Condition confirmation.
+    # In live/demo mode the condition ticks are NOT a hard gate — missing
+    # elements (no warranty card, opened packaging, etc.) are recorded and feed
+    # the depreciation + disposition logic instead (so the item routes to resale
+    # or donation rather than being restocked as new). In stub mode (tests) the
+    # original strict R16 gate is preserved.
     confirmed = data.validConditionConfirmed or {}
-    unconfirmed = [
-        element
-        for element in VALID_CONDITION_ELEMENTS
-        if not bool(confirmed.get(element))
-    ]
-    if unconfirmed:
-        return InitiationResult(
-            created=False,
-            status_code=422,
-            error_code="INVALID_CONDITION",
-            message=(
-                "The following Valid_Return_Condition elements were not "
-                "confirmed: " + ", ".join(unconfirmed) + "."
-            ),
-            unconfirmed=unconfirmed,
-        )
+    if get_settings().stub_mode:
+        unconfirmed = [
+            element
+            for element in VALID_CONDITION_ELEMENTS
+            if not bool(confirmed.get(element))
+        ]
+        if unconfirmed:
+            return InitiationResult(
+                created=False,
+                status_code=422,
+                error_code="INVALID_CONDITION",
+                message=(
+                    "The following Valid_Return_Condition elements were not "
+                    "confirmed: " + ", ".join(unconfirmed) + "."
+                ),
+                unconfirmed=unconfirmed,
+            )
 
     # Step 6: active-return guard (R1.5).
     existing = session.scalar(
@@ -1092,3 +1100,90 @@ def get_catalog_items(
 
     out.sort(key=lambda r: (r["category"], r["title"]))
     return {"count": len(out), "items": out}
+
+
+@router.get("/customers/{customerId}/orders")
+def get_customer_orders(customerId: str, session: Session = Depends(get_db)) -> dict:
+    """List a customer's orders + items with return eligibility (customer-scoped).
+
+    Powers the "sign in as" return portal: a customer only ever sees their own
+    orders. Each item reports its policy window, whether the return window is
+    still open (measured from the delivery date against the real current date),
+    its allowable return actions, and whether a return is already in progress.
+    """
+
+    from datetime import timezone
+
+    customer = session.get(Customer, customerId)
+    if customer is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "CUSTOMER_NOT_FOUND", "message": "Customer not found."},
+        )
+
+    orders = session.scalars(
+        select(Order).where(Order.customerId == customerId)
+    ).all()
+    order_ids = [o.orderId for o in orders]
+    items = (
+        session.scalars(select(Item).where(Item.orderId.in_(order_ids))).all()
+        if order_ids
+        else []
+    )
+    active_item_ids = {
+        iid
+        for (iid,) in session.execute(
+            select(ReturnRequest.itemId).where(
+                ReturnRequest.itemId.in_([i.itemId for i in items] or [""]),
+                ReturnRequest.status.in_(tuple(ACTIVE_STATUSES)),
+            )
+        ).all()
+    }
+
+    order_by_id = {o.orderId: o for o in orders}
+    today = datetime.now(timezone.utc).date()
+    out: list[dict] = []
+    for it in items:
+        order = order_by_id.get(it.orderId)
+        if order is None:
+            continue
+        view = policy.get_policy(it.category)
+        window_days = view.window_days
+        days_since = (today - order.deliveryDate).days
+        window_open = bool(
+            it.isReturnable
+            and view.returnable
+            and window_days is not None
+            and days_since < window_days
+        )
+        reason, action = _CATALOG_SUGGEST.get(it.category, ("NO_LONGER_NEEDED", "REFUND"))
+        out.append({
+            "itemId": it.itemId,
+            "title": it.title,
+            "category": it.category.value,
+            "displayCategory": view.display_name,
+            "orderId": it.orderId,
+            "deliveryDate": order.deliveryDate.isoformat(),
+            "daysSinceDelivery": days_since,
+            "windowDays": window_days,
+            "windowOpen": window_open,
+            "returnable": it.isReturnable and view.returnable,
+            "allowableActions": sorted(a.value for a in view.allowable_actions),
+            "paymentMethod": order.paymentMethod.value,
+            "sellerType": order.sellerType.value,
+            "priceMinor": it.purchasePriceMinor,
+            "currency": it.currency,
+            "weightGrams": it.weightGrams,
+            "alreadyReturning": it.itemId in active_item_ids,
+            "suggestedReason": reason,
+            "suggestedAction": action,
+        })
+
+    out.sort(key=lambda r: (not r["windowOpen"], r["title"]))
+    return {
+        "customerId": customerId,
+        "customerName": customer.name,
+        "city": customer.city,
+        "count": len(out),
+        "items": out,
+    }

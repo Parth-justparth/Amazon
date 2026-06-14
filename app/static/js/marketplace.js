@@ -16,8 +16,21 @@ function icon(cat) {
   return CATEGORY_ICON[cat] || "📦";
 }
 
+async function loadCities() {
+  const sel = document.getElementById("city");
+  try {
+    const data = await api("/marketplace/cities");
+    const opts = [`<option value="ALL">All cities (${data.total})</option>`].concat(
+      (data.cities || []).map((c) => `<option value="${esc(c.city)}">${esc(c.city)} (${c.count})</option>`)
+    );
+    const current = sel.value;
+    sel.innerHTML = opts.join("");
+    if ([...sel.options].some((o) => o.value === current)) sel.value = current;
+  } catch (e) {}
+}
+
 async function loadFeed() {
-  const city = document.getElementById("city").value;
+  const city = document.getElementById("city").value || "ALL";
   const feed = document.getElementById("feed");
   const loader = document.getElementById("loader");
   const empty = document.getElementById("empty");
@@ -27,8 +40,8 @@ async function loadFeed() {
   loader.classList.remove("hidden");
 
   try {
-    // Backend returns { city, listings: [...] }
-    const data = await api(`/marketplace?city=${encodeURIComponent(city)}`);
+    const q = city && city !== "ALL" ? `?city=${encodeURIComponent(city)}` : "";
+    const data = await api(`/marketplace${q}`);
     const listings = (data && data.listings) || [];
     loader.classList.add("hidden");
 
@@ -52,6 +65,7 @@ async function loadFeed() {
           <div class="ttl">${esc(it.itemTitle || pretty(it.itemCategory))}</div>
           <div class="meta">${esc(pretty(it.itemCategory))} · Refurbished · ${esc(it.city)}</div>
           <div class="price price-lg"><span class="sym">₹</span>${inr(it.discountedPriceMinor).replace("₹", "")} ${orig}</div>
+          ${it.why ? `<div class="alert alert-info" style="padding:8px 10px; font-size:12px; margin:6px 0;"><span class="ico">🌱</span><div>${esc(it.why)}</div></div>` : ""}
           <div class="tiny muted" style="flex:1;">Local pickup · Listing ${esc(it.listingId)}</div>
           <button class="btn btn-cta btn-block mt-1" onclick="buy('${esc(it.listingId)}', this)">Buy now</button>
         </div>`;
@@ -84,5 +98,9 @@ function closeModal() {
   document.getElementById("modal").classList.add("hidden");
 }
 
-document.addEventListener("DOMContentLoaded", loadFeed);
-loadFeed();
+async function init() {
+  await loadCities();
+  await loadFeed();
+}
+document.addEventListener("DOMContentLoaded", init);
+init();

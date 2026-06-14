@@ -46,6 +46,8 @@ from app.fixtures.seed_data import PHOTO_SCORE_FIXTURES
 
 __all__ = [
     "AssessmentFailed",
+    "ProductMismatch",
+    "LLMUnavailable",
     "AssessmentResult",
     "DecisionResult",
     "StubDecisionMode",
@@ -77,6 +79,22 @@ class AssessmentFailed(Exception):
     """
 
 
+class ProductMismatch(Exception):
+    """Raised when uploaded photos do not show the ordered product.
+
+    The condition-assessment service maps this to ``422 PRODUCT_MISMATCH`` so a
+    customer cannot return a different item than the one they ordered.
+    """
+
+    def __init__(self, message: str, product_seen: str | None = None) -> None:
+        self.product_seen = product_seen
+        super().__init__(message)
+
+
+class LLMUnavailable(Exception):
+    """Raised when the live decision call fails; drives the rule-based fallback."""
+
+
 @dataclass(frozen=True)
 class AssessmentResult:
     """Structured output of the condition-assessment call (R2.1, R2.3)."""
@@ -84,6 +102,11 @@ class AssessmentResult:
     secondLifeScore: int
     conditionSummary: str
     modelVersion: str
+    matchesProduct: bool = True
+    productSeen: str | None = None
+    defects: tuple[str, ...] = ()
+    sellableAsNew: bool = True
+    confidence: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -280,50 +303,95 @@ class OpenAIVisionClient:
         )
 
     def _live_assess(self, photo_set: str, item_context: dict) -> AssessmentResult:
-        """Structure for the real OpenAI assessment call (guarded; minimal)."""
+        """Real OpenAI vision call: verify product identity + grade condition."""
 
         client = self._require_live_client()
-        
-        # If photo_set is our local file paths, format them as base64 images
-        content_blocks = []
-        content_blocks.append({"type": "text", "text": f"You are an expert return inspector. Analyze these photos for an item of category: {item_context.get('category')}. Provide a strict JSON response containing 'secondLifeScore' (an integer 0-100 indicating condition, 100=pristine, 0=destroyed) and 'conditionSummary' (a 1-500 char string describing the exact visual damage or condition)."})
-        
-        if "|" in photo_set or "\\" in photo_set or "/" in photo_set:
-            paths = photo_set.split("|")
-            import base64
-            for path in paths:
+        import base64
+        import json
+
+        expected_title = item_context.get("title") or "the ordered item"
+        expected_category = item_context.get("category") or "unknown"
+        expected_class = item_context.get("productClassification") or ""
+
+        prompt = (
+            "You are an expert Amazon returns inspector. The customer ordered "
+            f"this product:\n- Title: {expected_title}\n- Category: {expected_category}\n"
+            f"- Classification: {expected_class}\n\n"
+            "You are given photos the customer uploaded of the item they want to "
+            "return. Carefully inspect them and return STRICT JSON with these keys:\n"
+            '  "matchesProduct" (bool): true ONLY if the photos clearly show the '
+            "same kind of product that was ordered (same category/type). If the "
+            "photos show a completely different product, set this false.\n"
+            '  "productSeen" (string): a short description of what the photos '
+            "actually show.\n"
+            '  "confidence" (number 0-1): your confidence in the product match.\n'
+            '  "secondLifeScore" (integer 0-100): condition grade where 100 = '
+            "pristine/unused, 80-99 = like-new minor wear, 50-79 = visibly used, "
+            "20-49 = worn/damaged, 0-19 = broken/unsellable.\n"
+            '  "conditionSummary" (string, <=300 chars): what you actually see.\n'
+            '  "defects" (array of short strings): visible defects, [] if none.\n'
+            '  "sellableAsNew" (bool): true only if it looks unopened/unused with '
+            "no defects.\n"
+            "Base the score ONLY on what is visible. Be strict and consistent."
+        )
+
+        content = [{"type": "text", "text": prompt}]
+        images = 0
+        if any(sep in photo_set for sep in ("|", "\\", "/")):
+            for path in photo_set.split("|"):
+                if not path:
+                    continue
                 try:
                     with open(path, "rb") as f:
                         b64 = base64.b64encode(f.read()).decode("utf-8")
-                        content_blocks.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
-                        })
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "low"},
+                    })
+                    images += 1
                 except Exception:
                     pass
-        else:
-            # Fallback for unexpected photo_set
-            content_blocks.append({"type": "text", "text": "Assume the item condition matches this ID: " + photo_set})
 
-        import json
+        if images == 0:
+            raise AssessmentFailed(
+                "No readable photos were provided; please upload clear images of the item."
+            )
+
         try:
             resp = client.chat.completions.create(
                 model=self._settings.openai_model,
                 temperature=self.temperature,
                 response_format={"type": "json_object"},
-                messages=[{"role": "user", "content": content_blocks}]
+                messages=[{"role": "user", "content": content}],
             )
             parsed = json.loads(resp.choices[0].message.content)
-            score = int(parsed.get("secondLifeScore", 50))
-            summary = str(parsed.get("conditionSummary", "Condition analyzed."))
-            
-            return AssessmentResult(
-                secondLifeScore=_clamp_score(score),
-                conditionSummary=_trim_summary(summary),
-                modelVersion=self.model_version
-            )
         except Exception as exc:
-            raise AssessmentFailed(f"OpenAI analysis failed: {str(exc)}")
+            raise AssessmentFailed(f"OpenAI analysis failed: {exc}")
+
+        matches = bool(parsed.get("matchesProduct", True))
+        confidence = float(parsed.get("confidence", 1.0) or 0.0)
+        product_seen = str(parsed.get("productSeen", "") or "")
+        if not matches or confidence < 0.4:
+            raise ProductMismatch(
+                f"The uploaded photos do not appear to show '{expected_title}'. "
+                f"Detected: {product_seen or 'a different product'}. Please upload "
+                "photos of the actual item you ordered.",
+                product_seen=product_seen or None,
+            )
+
+        defects = parsed.get("defects") or []
+        if not isinstance(defects, list):
+            defects = [str(defects)]
+        return AssessmentResult(
+            secondLifeScore=_clamp_score(int(parsed.get("secondLifeScore", 50))),
+            conditionSummary=_trim_summary(str(parsed.get("conditionSummary", "Condition analyzed."))),
+            modelVersion=self.model_version,
+            matchesProduct=True,
+            productSeen=product_seen or None,
+            defects=tuple(str(d) for d in defects[:8]),
+            sellableAsNew=bool(parsed.get("sellableAsNew", False)),
+            confidence=confidence,
+        )
 
     # -- (b) hybrid decision (consumed by task 8) ------------------------
 
@@ -417,46 +485,70 @@ class OpenAIVisionClient:
         economics: dict,
         excluded_dispositions: list[str],
     ) -> DecisionResult:
-        """Structure for the real OpenAI hybrid-decision call (guarded; minimal)."""
+        """Real OpenAI hybrid-decision call weighing condition, reason, economics."""
 
         client = self._require_live_client()
-        
-        content_blocks = []
-        content_blocks.append({"type": "text", "text": f"You are a routing decision engine for returns. Analyze the item photos and context.\nCategory: {item_context.get('category')}\nEconomics: {economics}\nExcluded dispositions: {excluded_dispositions}\nValid Dispositions: WAREHOUSE_RETURN, HYPERLOCAL_RESALE, GREEN_DONATION.\n\nRule 1: If condition >= 80 and div > rlc -> WAREHOUSE_RETURN\nRule 2: If condition >= 80 and weight > 10kg and rlc > div -> HYPERLOCAL_RESALE\nRule 3: If condition < 80 and rlc >= 0.5 * div -> GREEN_DONATION\nIf excluded, pick next best. \nOutput strict JSON with 'disposition' (string), 'reasoning' (string), and 'secondLifeScore' (int)."})
+        import base64
+        import json
 
-        if "|" in photo_set or "\\" in photo_set or "/" in photo_set:
-            paths = photo_set.split("|")
-            import base64
-            for path in paths:
+        prompt = (
+            "You are SecondLife AI, the disposition engine for Amazon returns. "
+            "Decide the single best outcome for a returned item and explain why.\n\n"
+            f"Item category: {item_context.get('category')}\n"
+            f"Return reason: {item_context.get('reason')}\n"
+            f"Requested action: {item_context.get('returnAction')}\n"
+            f"AI condition score (0-100): {item_context.get('score')}\n"
+            f"Visible defects: {item_context.get('defects')}\n"
+            f"Original packaging/tags/warranty/accessories all present: {item_context.get('conditionComplete')}\n"
+            f"Economics (minor units): {economics}\n"
+            f"Dispositions already excluded: {excluded_dispositions}\n\n"
+            "Valid dispositions and when to choose them:\n"
+            "- WAREHOUSE_RETURN: resell as NEW. ONLY if the item is essentially "
+            "unused (score >= 85), all original packaging/accessories present, and "
+            "the reason is NOT defective/damaged. A defective or opened/used item "
+            "can NEVER be sold as new.\n"
+            "- HYPERLOCAL_RESALE: good usable condition but cannot be sold as new "
+            "(opened, missing packaging/warranty, or expensive to ship back). "
+            "Resell second-hand locally.\n"
+            "- GREEN_DONATION: low condition/value (score < 50) or not worth "
+            "reselling; donate to avoid landfill.\n\n"
+            "Never pick an excluded disposition. Output STRICT JSON with: "
+            '"disposition" (one of the three), "reasoning" (<=300 chars explaining '
+            'the choice in plain language for the customer), "secondLifeScore" (int).'
+        )
+
+        content = [{"type": "text", "text": prompt}]
+        if any(sep in photo_set for sep in ("|", "\\", "/")):
+            for path in photo_set.split("|"):
+                if not path:
+                    continue
                 try:
                     with open(path, "rb") as f:
                         b64 = base64.b64encode(f.read()).decode("utf-8")
-                        content_blocks.append({
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
-                        })
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{b64}", "detail": "low"},
+                    })
                 except Exception:
                     pass
 
-        import json
         try:
             resp = client.chat.completions.create(
                 model=self._settings.openai_model,
                 temperature=self.temperature,
                 response_format={"type": "json_object"},
-                messages=[{"role": "user", "content": content_blocks}]
+                messages=[{"role": "user", "content": content}],
             )
             parsed = json.loads(resp.choices[0].message.content)
-            
             return DecisionResult(
                 secondLifeScore=parsed.get("secondLifeScore"),
                 disposition=parsed.get("disposition"),
                 reasoning=parsed.get("reasoning"),
                 modelVersion=self.model_version,
-                raw=parsed
+                raw=parsed,
             )
         except Exception as exc:
-            raise AssessmentFailed(f"OpenAI decision failed: {str(exc)}")
+            raise LLMUnavailable(f"OpenAI decision failed: {exc}")
 
     # -- live client helper ----------------------------------------------
 

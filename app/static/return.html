@@ -11,87 +11,63 @@
     <div class="crumbs"><a href="/static/index.html">Home</a><span>›</span>Returns &amp; Orders<span>›</span>Start a return</div>
 
     <div class="stepper" id="stepper">
-      <div class="step" data-step="start"><span class="dot">1</span> Start</div>
-      <div class="step" data-step="assess"><span class="dot">2</span> Assess</div>
+      <div class="step" data-step="select"><span class="dot">1</span> Select</div>
+      <div class="step" data-step="assess"><span class="dot">2</span> Photos</div>
       <div class="step" data-step="decision"><span class="dot">3</span> Decision</div>
       <div class="step" data-step="fulfil"><span class="dot">4</span> Fulfil</div>
       <div class="step" data-step="done"><span class="dot">5</span> Done</div>
     </div>
 
-    <!-- ============ STEP: START ============ -->
-    <section id="p-start" class="card fade-in">
-      <div class="card-head"><h2>Start a return</h2><p class="muted">Pick a real seeded item below (runs a live OpenAI assessment), choose a quick demo scenario, or enter your own order details.</p></div>
-
-      <div class="field" style="background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; padding:14px;">
-        <label>🔎 Pick a seeded item to return</label>
-        <div class="grid-2">
-          <select id="catFilter" onchange="loadCatalog()">
-            <option value="">All categories</option>
-            <option value="ELECTRONICS">Electronics</option>
-            <option value="HOME_APPLIANCES">Home Appliances</option>
-            <option value="FOOTWEAR">Footwear</option>
-            <option value="CLOTHING_FOOTWEAR">Non-returnable samples</option>
-          </select>
-          <select id="catalogPick" onchange="pickCatalogItem()"><option value="">Loading items…</option></select>
+    <!-- ============ STEP: WHO (customer) ============ -->
+    <section id="p-who" class="card fade-in">
+      <div class="card-head"><h2>Your orders</h2><p class="muted">Sign in to see your orders. You can only return items from your own account.</p></div>
+      <div class="row wrap-row">
+        <div class="field" style="margin:0; flex:1; min-width:240px;">
+          <label for="who">Account (customer)</label>
+          <input list="whoList" id="who" placeholder="e.g. cust_100" />
+          <datalist id="whoList"></datalist>
+          <div class="hint" id="whoHint">Pick an account with active orders, then view your orders.</div>
         </div>
-        <div class="hint" id="catalogHint">Selecting an item auto-fills the order, customer, a valid in-window date, and a suggested reason/action.</div>
+        <button class="btn btn-primary" style="align-self:flex-end;" onclick="loadOrders()">View my orders</button>
       </div>
+    </section>
 
-      <div class="row wrap-row mb-2 mt-2">
-        <span class="tiny muted" style="align-self:center;">Quick demos:</span>
-        <button class="btn btn-sm" onclick="preset('warehouse')">⚡ Electronics → Warehouse</button>
-        <button class="btn btn-sm" onclick="preset('resale')">⚡ Appliance → Resale</button>
-        <button class="btn btn-sm" onclick="preset('donation')">⚡ Footwear → Donation</button>
-        <button class="btn btn-sm" onclick="preset('keepit')">⚡ Keep It offer</button>
+    <!-- ============ STEP: ITEMS ============ -->
+    <section id="p-items" class="card fade-in hidden">
+      <div class="card-head row-between">
+        <div><h2 id="itemsTitle">Your items</h2><p class="muted" id="itemsSub"></p></div>
+        <button class="btn btn-sm" onclick="show('who')">Change account</button>
       </div>
+      <div id="itemsGrid" class="feed"></div>
+    </section>
 
+    <!-- ============ STEP: DETAILS ============ -->
+    <section id="p-details" class="card fade-in hidden">
+      <div class="card-head"><h2>Return details</h2><p class="muted" id="detailsItem"></p></div>
       <div class="grid-2">
-        <div class="field"><label>Order ID</label><input type="text" id="orderId" placeholder="ord_1001" /></div>
-        <div class="field"><label>Item ID</label><input type="text" id="itemId" placeholder="item_elec_01" /></div>
+        <div class="field"><label>Why are you returning it?</label><select id="reason"></select><div class="hint" id="reasonHint"></div></div>
+        <div class="field"><label>What would you like?</label><select id="returnAction"></select><div class="hint" id="actionHint"></div></div>
       </div>
-      <div class="grid-2">
-        <div class="field">
-          <label>Customer</label>
-          <select id="customerId">
-            <option value="cust_01">Aarav (cust_01)</option>
-            <option value="cust_02">Diya (cust_02)</option>
-            <option value="buyer_22">Rahul (buyer_22)</option>
-          </select>
-        </div>
-        <div class="field"><label>Return date (within window)</label><input type="text" id="submittedAt" placeholder="YYYY-MM-DD" /></div>
-      </div>
-      <div class="grid-2">
-        <div class="field"><label>Reason</label><select id="reason"></select></div>
-        <div class="field"><label>Return action</label>
-          <select id="returnAction">
-            <option value="REPLACEMENT">Replacement</option>
-            <option value="REFUND">Refund</option>
-            <option value="EXCHANGE">Exchange</option>
-          </select>
-        </div>
-      </div>
-
       <div class="field">
-        <label>Valid-return condition (confirm what applies)</label>
+        <label>What's still with the item? <span class="tiny muted">(unticking lowers its resale value &amp; may change the outcome)</span></label>
         <div class="checks">
-          <label class="check"><input type="checkbox" id="packaging" checked /> Packaging</label>
-          <label class="check"><input type="checkbox" id="tags" checked /> Tags</label>
+          <label class="check"><input type="checkbox" id="packaging" checked /> Original packaging</label>
+          <label class="check"><input type="checkbox" id="tags" checked /> Tags / seals</label>
           <label class="check"><input type="checkbox" id="warrantyCard" checked /> Warranty card</label>
           <label class="check"><input type="checkbox" id="manuals" checked /> Manuals</label>
-          <label class="check"><input type="checkbox" id="accessories" checked /> Accessories</label>
-          <label class="check"><input type="checkbox" id="damageProofProvided" checked /> Damage proof (video)</label>
+          <label class="check"><input type="checkbox" id="accessories" checked /> All accessories</label>
+          <label class="check"><input type="checkbox" id="damageProofProvided" /> I have a damage video/proof</label>
         </div>
       </div>
-
       <div class="row-between mt-2">
-        <a class="btn-link" href="/static/index.html">Cancel</a>
-        <button class="btn btn-primary" onclick="startReturn()">Continue to assessment</button>
+        <button class="btn" onclick="show('items')">Back</button>
+        <button class="btn btn-primary" onclick="startReturn()">Continue</button>
       </div>
     </section>
 
     <!-- ============ STEP: SELLER AUTH (FBM) ============ -->
     <section id="p-sellerauth" class="card fade-in hidden">
-      <div class="card-head"><h2>Seller authorization required</h2><p class="muted">This item is Fulfilled by Merchant (FBM). The seller must authorize the return within the window (R19).</p></div>
+      <div class="card-head"><h2>Seller authorization required</h2><p class="muted">This item is Fulfilled by Merchant (FBM). The seller must authorize the return (R19).</p></div>
       <div class="alert alert-warn mb-2"><span class="ico">🏪</span><div>If the seller declines or the window elapses, the A-to-z Guarantee issues a platform refund automatically.</div></div>
       <div class="row wrap-row">
         <button class="btn btn-primary" onclick="sellerAuth(true)">Seller authorizes return</button>
@@ -101,17 +77,20 @@
 
     <!-- ============ STEP: ASSESS ============ -->
     <section id="p-assess" class="card fade-in hidden">
-      <div class="card-head"><h2>Condition assessment</h2><p class="muted">Upload photos of the item. Our vision AI grades the condition from 0–100.</p></div>
-      <div class="field">
-        <label>Photos (1–10, jpeg/png/webp, ≤10 MB each)</label>
-        <input type="file" id="photos" accept="image/jpeg,image/png,image/webp" multiple onchange="onPhotos(event)" />
-        <div class="hint">No real images needed for the demo — click below to attach sample photos.</div>
-        <button class="btn btn-sm mt-1" onclick="useSamplePhotos()">📷 Use 3 sample photos</button>
+      <div class="card-head">
+        <h2>Upload photos <span class="badge badge-green">● Live AI</span></h2>
+        <p class="muted">Upload <strong>at least 3 clear photos from different angles</strong>. OpenAI vision verifies it's the right product and grades its condition 0–100.</p>
       </div>
+      <div class="field">
+        <label>Photos (3–10, jpeg/png/webp, ≤10 MB each)</label>
+        <input type="file" id="photos" accept="image/jpeg,image/png,image/webp" multiple onchange="onPhotos(event)" />
+        <div class="hint">Tip: front, back/side, and a close-up of any label or wear.</div>
+      </div>
+      <div id="photoPreview" class="row wrap-row mt-1"></div>
       <div id="photoCount" class="tiny muted"></div>
       <div class="row-between mt-2">
-        <button class="btn" onclick="show('start')">Back</button>
-        <button class="btn btn-primary" onclick="runAssessment()">Analyze with AI</button>
+        <button class="btn" onclick="show('details')">Back</button>
+        <button class="btn btn-primary" id="assessBtn" onclick="runAssessment()">Verify &amp; grade with AI</button>
       </div>
     </section>
 
@@ -133,8 +112,8 @@
     <!-- ============ STEP: PROCESSING ============ -->
     <section id="p-processing" class="card fade-in hidden center" style="padding:48px;">
       <span class="spinner spinner-lg"></span>
-      <h2 class="mt-2">SecondLife AI is thinking…</h2>
-      <p class="muted">Scoring condition, computing economics &amp; carbon impact, and selecting the optimal disposition.</p>
+      <h2 class="mt-2" id="procTitle">SecondLife AI is analyzing your photos…</h2>
+      <p class="muted" id="procSub">Verifying the product, grading condition, and choosing the best outcome.</p>
     </section>
 
     <!-- ============ STEP: DECISION ============ -->

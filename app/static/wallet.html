@@ -13,13 +13,14 @@
     <div class="card">
       <div class="card-head row-between">
         <div><h2>Green Points Wallet</h2><p class="muted">Earn points on every sustainable resolution. 1 point = ₹1.00.</p></div>
-        <div class="field" style="margin:0; min-width:200px;">
+        <div class="field" style="margin:0; min-width:220px;">
           <label for="customerId">Viewing account</label>
-          <select id="customerId" onchange="loadBalance()">
-            <option value="cust_01">Aarav (cust_01)</option>
-            <option value="cust_02">Diya (cust_02)</option>
-            <option value="buyer_22">Rahul (buyer_22)</option>
-          </select>
+          <input list="custList" id="customerId" value="cust_01" onchange="loadBalance()" />
+          <datalist id="custList">
+            <option value="cust_01">Aarav</option>
+            <option value="cust_02">Diya</option>
+            <option value="buyer_22">Rahul</option>
+          </datalist>
         </div>
       </div>
 
