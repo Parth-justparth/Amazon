@@ -3,149 +3,110 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SecondLife AI — Return Portal</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <title>SecondLife AI — Smarter, greener returns</title>
   <link rel="stylesheet" href="/static/css/styles.css" />
 </head>
 <body>
-  <nav class="navbar">
-    <div class="brand">SecondLife <span>AI</span></div>
-    <div class="nav-links">
-      <a href="/" class="active">Return Portal</a>
-      <a href="/static/marketplace.html">Marketplace</a>
-      <a href="/static/wallet.html">Wallet</a>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Returns, reimagined.</h1>
+      <p>
+        SecondLife AI inspects your item with vision AI and routes it to the smartest
+        outcome — keep it, resell it locally, donate it, or send it back — before a
+        shipping label is ever printed. You save money and CO₂, and earn Green Points.
+      </p>
+    </section>
+
+    <div class="tiles" style="margin-bottom:18px;">
+      <div class="tile">
+        <div class="ico">↩️</div>
+        <h3>Return or replace an item</h3>
+        <p>Start a guided return. Our AI scores the condition and finds the optimal disposition in seconds.</p>
+        <a class="btn btn-primary" href="/static/return.html">Start a return</a>
+      </div>
+      <div class="tile">
+        <div class="ico">🛍️</div>
+        <h3>Hyperlocal Marketplace</h3>
+        <p>Buy quality, AI-graded second-hand items from sellers in your own city at a great discount.</p>
+        <a class="btn btn-cta" href="/static/marketplace.html">Browse deals</a>
+      </div>
+      <div class="tile">
+        <div class="ico">🌿</div>
+        <h3>Green Points Wallet</h3>
+        <p>Earn points for every sustainable resolution and redeem them straight to Amazon Pay.</p>
+        <a class="btn" href="/static/wallet.html">Open wallet</a>
+      </div>
+      <div class="tile">
+        <div class="ico">📋</div>
+        <h3>Check return policy</h3>
+        <p>See the return window and allowed actions for any product category before you start.</p>
+        <button class="btn" onclick="document.getElementById('policy-card').scrollIntoView({behavior:'smooth'})">Check a category</button>
+      </div>
     </div>
-  </nav>
 
-  <div class="container" id="app">
-    <div class="glass-panel" id="wizard-container">
-      
-      <!-- Step 1: Initiation -->
-      <div id="step-1" class="animate-fade-in">
-        <h2 class="mb-4">Initiate a Return</h2>
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Order ID</label>
-            <input type="text" id="orderId" placeholder="Enter Order ID" />
-          </div>
-          <div class="form-group">
-            <label>Item ID (e.g. item_keepit_01)</label>
-            <input type="text" id="itemId" placeholder="Enter Item ID" />
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Customer ID</label>
-            <input type="text" id="customerId" placeholder="Enter Customer ID" />
-          </div>
-          <div class="form-group">
-            <label>Return Reason</label>
-            <select id="reason">
-              <option value="MINOR_DEFECT">Minor Defect (Keep It Demo)</option>
-              <option value="DEFECTIVE">Defective (Warehouse Demo)</option>
-              <option value="SIZE_OR_FIT">Size or Fit (Donation Demo)</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Return Action</label>
-            <select id="returnAction">
-              <option value="REPLACEMENT">Replacement</option>
-              <option value="REFUND">Refund</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Date (Seed Window)</label>
-            <input type="text" id="submittedAt" placeholder="YYYY-MM-DD" />
-          </div>
-        </div>
-        <div class="form-group mt-4">
-          <label>Condition Confirmation (Select All Applicable)</label>
-          <div class="checkbox-grid checks">
-            <label class="checkbox-label"><input type="checkbox" id="packaging" checked /> Packaging</label>
-            <label class="checkbox-label"><input type="checkbox" id="tags" checked /> Tags</label>
-            <label class="checkbox-label"><input type="checkbox" id="warrantyCard" checked /> Warranty Card</label>
-            <label class="checkbox-label"><input type="checkbox" id="manuals" checked /> Manuals</label>
-            <label class="checkbox-label"><input type="checkbox" id="accessories" checked /> Accessories</label>
-            <label class="checkbox-label"><input type="checkbox" id="damageProofProvided" checked /> Damage Proof</label>
-          </div>
-        </div>
-        <div class="mt-6 text-center">
-          <button class="btn btn-primary" onclick="initiateReturn()">Continue to Assessment</button>
-        </div>
+    <div class="card">
+      <div class="card-head"><h2>How a SecondLife return works</h2></div>
+      <div class="stats">
+        <div class="stat"><div class="n">1 · Start</div><div class="l">Tell us the item &amp; reason</div></div>
+        <div class="stat"><div class="n">2 · Assess</div><div class="l">Vision AI scores condition 0–100</div></div>
+        <div class="stat"><div class="n">3 · Decide</div><div class="l">Keep / Resell / Donate / Return</div></div>
+        <div class="stat"><div class="n">4 · Reward</div><div class="l">Refund, CO₂ saved &amp; Green Points</div></div>
       </div>
+    </div>
 
-      <!-- Step 2: Assessment -->
-      <div id="step-2" class="hidden animate-fade-in">
-        <h2 class="mb-4">Condition Assessment</h2>
-        <p class="mb-4 text-secondary">Upload photos of the item. Our Vision AI will determine the exact condition score and damage state.</p>
-        <div class="form-group">
-          <label>Photos (Select up to 10 images)</label>
-          <input type="file" id="photos" accept="image/jpeg,image/png,image/webp" multiple />
-          <div id="photo-preview" style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;"></div>
-        </div>
-        <div class="mt-6 flex justify-between">
-          <button class="btn btn-outline" onclick="showStep(1)">Back</button>
-          <button class="btn btn-primary" onclick="submitAssessment()">Analyze AI Score</button>
-        </div>
+    <div class="card" id="policy-card">
+      <div class="card-head">
+        <h2>Category return policy checker</h2>
+        <p class="muted">Live from the policy engine (Requirement 14/15).</p>
       </div>
-
-      <!-- Step 3: Processing -->
-      <div id="step-3" class="hidden animate-fade-in text-center">
-        <h2 class="mb-4">SecondLife AI Processing...</h2>
-        <div class="loader" style="margin: 2rem auto; width: 48px; height: 48px;"></div>
-        <p class="text-secondary">Analyzing condition, computing environmental impact, and determining optimal disposition.</p>
-      </div>
-
-      <!-- Step 4: Decision / Keep It Offer -->
-      <div id="step-4" class="hidden animate-fade-in">
-        <!-- Normal Decision View -->
-        <div id="decision-view" class="hidden text-center">
-          <h2 class="mb-4">Return Disposition</h2>
-          <div class="glass-panel" style="background: rgba(139, 92, 246, 0.1); border-color: var(--accent-purple);">
-            <h3 id="disposition-text" style="color: var(--accent-purple); font-size: 1.5rem;" class="mb-2"></h3>
-            <p id="decision-desc" class="text-secondary"></p>
-          </div>
-          <div class="mt-6">
-            <button class="btn btn-outline" onclick="location.reload()">Start Over</button>
-          </div>
+      <div class="row wrap-row">
+        <div class="field" style="margin:0; min-width:280px; flex:1;">
+          <label for="polCat">Item category</label>
+          <select id="polCat">
+            <option value="MOBILES_LAPTOPS_ELECTRONICS">Mobiles, Laptops &amp; Electronics</option>
+            <option value="CLOTHING_FOOTWEAR">Clothing &amp; Footwear</option>
+            <option value="BOOKS">Books</option>
+            <option value="HOME_KITCHEN_APPLIANCES">Home &amp; Kitchen Appliances</option>
+            <option value="GROCERY_PERISHABLES">Grocery &amp; Perishables</option>
+            <option value="BEAUTY_PERSONAL_CARE">Beauty &amp; Personal Care</option>
+            <option value="SOFTWARE_VIDEO_GAMES_MUSIC">Software, Video Games &amp; Music</option>
+          </select>
         </div>
-
-        <!-- Keep It Offer View -->
-        <div id="keep-it-view" class="hidden">
-          <div class="impact-card glass-panel animate-fade-in mb-6">
-            <h2 style="color: #fff">Wait! Keep It & Save the Planet 🌍</h2>
-            <p class="text-secondary mt-2">Instead of returning, keep the item for a partial refund and earn Green Points.</p>
-            <div class="impact-value" id="offer-amount">₹0.00</div>
-            <p>Partial Refund to Original Payment Method</p>
-          </div>
-          <div class="flex justify-between gap-4 mt-6">
-            <button class="btn btn-outline" style="flex:1" onclick="declineKeepIt()">No, Continue Return</button>
-            <button class="btn btn-success" style="flex:1" onclick="acceptKeepIt()">Accept Offer</button>
-          </div>
-        </div>
+        <button class="btn btn-primary" style="align-self:flex-end;" onclick="checkPolicy()">Check policy</button>
       </div>
-
-      <!-- Step 5: Carbon Impact Card -->
-      <div id="step-5" class="hidden animate-fade-in">
-        <div class="impact-card glass-panel" style="padding: 3rem;">
-          <h2 style="color: #fff">Thank You! 🌱</h2>
-          <div class="impact-value" id="carbon-saved" style="font-size: 3.5rem;">0 kg</div>
-          <p style="font-size: 1.25rem;">of CO₂ emissions saved</p>
-          <div class="mt-6">
-            <p class="text-secondary">You also earned <span id="points-earned" style="color: var(--accent-green); font-weight: bold;"></span> Green Points!</p>
-          </div>
-          <div class="mt-6">
-            <button class="btn btn-outline" onclick="location.reload()">Return Home</button>
-          </div>
-        </div>
-      </div>
-
+      <div id="polResult" class="mt-2"></div>
     </div>
   </div>
 
   <script src="/static/js/api.js"></script>
-  <script src="/static/js/wizard.js"></script>
+  <script>
+    renderChrome("home");
+
+    async function checkPolicy() {
+      const cat = document.getElementById("polCat").value;
+      const out = document.getElementById("polResult");
+      out.innerHTML = '<span class="spinner"></span>';
+      try {
+        const p = await api(`/categories/${cat}/policy`);
+        const actions = (p.allowableActions || []).map((a) => `<span class="badge">${pretty(a)}</span>`).join(" ") || '<span class="muted">None (non-returnable)</span>';
+        out.innerHTML = `
+          <div class="alert ${p.returnable ? "alert-success" : "alert-warn"}">
+            <span class="ico">${p.returnable ? "✅" : "⚠️"}</span>
+            <div>
+              <strong>${esc(p.displayName)}</strong> —
+              ${p.returnable ? "Returnable" : "Non-returnable"}.
+              <div class="mt-1 tiny">
+                Return window: <strong>${p.windowDays != null ? p.windowDays + " days" : "—"}</strong> ·
+                Damage proof required: <strong>${p.requiresDamageProof ? "Yes" : "No"}</strong>
+              </div>
+              <div class="mt-1">Allowed actions: ${actions}</div>
+              <div class="mt-1 tiny">Eligibility: ${esc(p.eligibilityCondition || "—")}</div>
+            </div>
+          </div>`;
+      } catch (e) {
+        out.innerHTML = "";
+      }
+    }
+  </script>
 </body>
 </html>

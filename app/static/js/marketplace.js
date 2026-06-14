@@ -1,80 +1,88 @@
+/* Hyperlocal Marketplace — feed + atomic purchase (R5, R6). */
+
+renderChrome("market");
+
+const CATEGORY_ICON = {
+  ELECTRONICS: "💻",
+  MOBILES_LAPTOPS_ELECTRONICS: "📱",
+  HOME_APPLIANCES: "🔌",
+  HOME_KITCHEN_APPLIANCES: "🍳",
+  FOOTWEAR: "👟",
+  CLOTHING_FOOTWEAR: "👕",
+  BOOKS: "📚",
+};
+
+function icon(cat) {
+  return CATEGORY_ICON[cat] || "📦";
+}
+
 async function loadFeed() {
-  const city = document.getElementById('city-filter').value;
-  const grid = document.getElementById('feed-grid');
-  const loader = document.getElementById('loader');
-  const empty = document.getElementById('empty-state');
-  
-  grid.innerHTML = '';
-  loader.classList.remove('hidden');
-  empty.classList.add('hidden');
-  
+  const city = document.getElementById("city").value;
+  const feed = document.getElementById("feed");
+  const loader = document.getElementById("loader");
+  const empty = document.getElementById("empty");
+
+  feed.innerHTML = "";
+  empty.classList.add("hidden");
+  loader.classList.remove("hidden");
+
   try {
-    const listings = await fetchApi(`/marketplace?city=${encodeURIComponent(city)}`);
-    loader.classList.add('hidden');
-    
-    if (!listings || listings.length === 0) {
-      empty.classList.remove('hidden');
+    // Backend returns { city, listings: [...] }
+    const data = await api(`/marketplace?city=${encodeURIComponent(city)}`);
+    const listings = (data && data.listings) || [];
+    loader.classList.add("hidden");
+
+    if (listings.length === 0) {
+      empty.classList.remove("hidden");
       return;
     }
-    
-    listings.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'glass-panel listing-card animate-fade-in';
-      
-      const price = (item.discountedPriceMinor / 100).toFixed(2);
-      const original = (item.originalPriceMinor / 100).toFixed(2);
-      
-      // Determine placeholder image based on category
-      let icon = '📦';
-      if (item.category === 'HOME_APPLIANCES') icon = '📺';
-      else if (item.category === 'ELECTRONICS') icon = '💻';
-      else if (item.category === 'FOOTWEAR') icon = '👟';
-      
+
+    listings.forEach((it) => {
+      const card = document.createElement("div");
+      card.className = "listing fade-in";
+      const orig = it.originalPriceMinor
+        ? `<span class="strike">${inr(it.originalPriceMinor, it.currency)}</span>`
+        : "";
       card.innerHTML = `
-        <div class="listing-img">
-          ${icon}
-          <div class="score-badge">AI Score: ${item.secondLifeScore}</div>
+        <div class="thumb">
+          ${icon(it.itemCategory)}
+          <span class="badge badge-score score">AI Score ${it.secondLifeScore ?? "—"}</span>
         </div>
-        <div class="listing-content">
-          <h3 style="margin-bottom: 0.25rem;">${item.itemTitle}</h3>
-          <p class="text-secondary" style="font-size: 0.9rem; flex: 1;">${item.conditionDescription}</p>
-          <div class="listing-price">
-            ₹${price} <span class="listing-original">₹${original}</span>
-          </div>
-          <button class="btn btn-primary" style="width: 100%; margin-top: 1rem;" onclick="purchase('${item.listingId}')">
-            Secure & Purchase
-          </button>
-        </div>
-      `;
-      grid.appendChild(card);
+        <div class="body">
+          <div class="ttl">${esc(it.itemTitle || pretty(it.itemCategory))}</div>
+          <div class="meta">${esc(pretty(it.itemCategory))} · Refurbished · ${esc(it.city)}</div>
+          <div class="price price-lg"><span class="sym">₹</span>${inr(it.discountedPriceMinor).replace("₹", "")} ${orig}</div>
+          <div class="tiny muted" style="flex:1;">Local pickup · Listing ${esc(it.listingId)}</div>
+          <button class="btn btn-cta btn-block mt-1" onclick="buy('${esc(it.listingId)}', this)">Buy now</button>
+        </div>`;
+      feed.appendChild(card);
     });
   } catch (e) {
-    loader.classList.add('hidden');
+    loader.classList.add("hidden");
   }
 }
 
-async function purchase(listingId) {
+async function buy(listingId, btn) {
+  const buyerId = document.getElementById("buyerId").value;
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Securing'; }
   try {
-    const body = {
-      buyerId: 'cust_buyer_01',
-      paymentMethodId: 'pm_01'
-    };
-    const data = await fetchApi(`/listings/${listingId}/purchase`, 'POST', body);
-    
-    if (data.status === 'SOLD') {
-      document.getElementById('pickup-location').textContent = data.pickupLocation;
-      document.getElementById('seller-contact').textContent = data.sellerContact;
-      document.getElementById('purchase-modal').classList.remove('hidden');
-      loadFeed(); // Refresh feed
+    const data = await api(`/listings/${listingId}/purchase`, "POST", { buyerId });
+    if (data.status === "SOLD") {
+      document.getElementById("m-loc").textContent = data.pickupLocation || "—";
+      document.getElementById("m-contact").textContent = data.pickupContact || "—";
+      document.getElementById("m-refund").textContent =
+        "Seller refund status: " + pretty(data.refundStatus || "");
+      document.getElementById("modal").classList.remove("hidden");
+      loadFeed();
     }
   } catch (e) {
-    // Error toast handled by api.js
+    if (btn) { btn.disabled = false; btn.textContent = "Buy now"; }
   }
 }
 
 function closeModal() {
-  document.getElementById('purchase-modal').classList.add('hidden');
+  document.getElementById("modal").classList.add("hidden");
 }
 
-// Initial load
-document.addEventListener('DOMContentLoaded', loadFeed);
+document.addEventListener("DOMContentLoaded", loadFeed);
+loadFeed();

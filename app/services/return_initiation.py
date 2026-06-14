@@ -1023,3 +1023,72 @@ def get_category_policy(category: str) -> dict:
         "returnable": view.returnable,
         "requiresDamageProof": view.requires_damage_proof,
     }
+
+
+# Suggested happy-path reason/action per demo category (used by the UI picker).
+_CATALOG_SUGGEST: dict[ItemCategory, tuple[str, str]] = {
+    ItemCategory.ELECTRONICS: ("DEFECTIVE", "REPLACEMENT"),
+    ItemCategory.HOME_APPLIANCES: ("DEFECTIVE", "REPLACEMENT"),
+    ItemCategory.FOOTWEAR: ("SIZE_OR_FIT", "REFUND"),
+    ItemCategory.CLOTHING_FOOTWEAR: ("NO_LONGER_NEEDED", "REFUND"),
+}
+
+
+@router.get("/catalog/items")
+def get_catalog_items(
+    category: str | None = None,
+    limit: int = 120,
+    session: Session = Depends(get_db),
+) -> dict:
+    """List seeded items available to return (no existing return request).
+
+    Powers the return-portal item picker so testers can drive a real return
+    end-to-end (real OpenAI scoring) against any seeded item, with valid order
+    context (payment method, seller type, delivery date, policy window).
+    """
+
+    taken = {
+        rid for (rid,) in session.execute(select(ReturnRequest.itemId)).all()
+    }
+    orders = {o.orderId: o for o in session.scalars(select(Order)).all()}
+
+    out: list[dict] = []
+    for item in session.scalars(select(Item)).all():
+        if item.itemId in taken:
+            continue
+        if category and item.category.value != category:
+            continue
+        order = orders.get(item.orderId)
+        if order is None:
+            continue
+        try:
+            view = policy.get_policy(item.category)
+            window_days = view.window_days
+            display = view.display_name
+        except Exception:
+            window_days = None
+            display = item.category.value
+        reason, action = _CATALOG_SUGGEST.get(item.category, ("NO_LONGER_NEEDED", "REFUND"))
+        out.append({
+            "itemId": item.itemId,
+            "title": item.title,
+            "category": item.category.value,
+            "displayCategory": display,
+            "orderId": item.orderId,
+            "customerId": order.customerId,
+            "paymentMethod": order.paymentMethod.value,
+            "sellerType": order.sellerType.value,
+            "deliveryDate": order.deliveryDate.isoformat(),
+            "windowDays": window_days,
+            "priceMinor": item.purchasePriceMinor,
+            "currency": item.currency,
+            "weightGrams": item.weightGrams,
+            "returnable": item.isReturnable,
+            "suggestedReason": reason,
+            "suggestedAction": action,
+        })
+        if len(out) >= max(1, min(limit, 500)):
+            break
+
+    out.sort(key=lambda r: (r["category"], r["title"]))
+    return {"count": len(out), "items": out}

@@ -21,6 +21,7 @@ or against a caller-managed session (tests)::
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -33,10 +34,16 @@ from app.domain.models import (
     City,
     CO2Factor,
     Customer,
+    FlowStep,
     GreenPointsBalance,
     Item,
+    ListingStatus,
+    MarketplaceListing,
     Order,
+    ReturnRequest,
+    ReturnStatus,
 )
+from app.domain.money import utc_now
 from app.domain.repository import init_db, session_scope
 from app.fixtures import seed_data as data
 
@@ -242,7 +249,14 @@ def seed_on_startup(
     Intended to be wired into FastAPI startup in a later task; calling it is
     enough to bring a fresh database to a fully seeded, demo-ready state. Safe
     to call repeatedly thanks to :func:`load_all`'s idempotency.
+
+    In live/demo mode (``stub_mode`` is False) a set of browsable marketplace
+    listings is also seeded so the Hyperlocal Marketplace has inventory out of
+    the box. This is skipped under tests (which run with ``stub_mode`` True) so
+    the existing fixtures and integration expectations are unchanged.
     """
+
+    from app.config import get_settings
 
     init_db()
     with session_scope() as session:
@@ -250,7 +264,60 @@ def seed_on_startup(
             session,
             include_missing_co2_factor_toggle=include_missing_co2_factor_toggle,
         )
+        if not get_settings().stub_mode:
+            load_marketplace_demo(session)
     return summary
 
 
-__all__ = ["LoadSummary", "load_all", "seed_on_startup"]
+def load_marketplace_demo(session: Session) -> int:
+    """Seed browsable marketplace listings (idempotent). Returns rows inserted.
+
+    Each listing is backed by a dedicated order, item, and RESALE return
+    request so the buyer purchase flow (atomic compare-and-set + automatic
+    seller refund) works without any prior setup.
+    """
+
+    inserted = 0
+    for o in data.LISTING_ORDERS:
+        inserted += _ensure(
+            session, Order, o["orderId"],
+            {"orderId": o["orderId"], "customerId": o["customerId"],
+             "deliveryDate": o["deliveryDate"], "currency": o["currency"],
+             "paymentMethod": o["paymentMethod"], "sellerType": o["sellerType"]},
+        )
+    for it in data.LISTING_ITEMS:
+        inserted += _ensure(
+            session, Item, it["itemId"],
+            {"itemId": it["itemId"], "orderId": it["orderId"], "category": it["category"],
+             "productClassification": it["productClassification"],
+             "isReturnable": it["isReturnable"], "purchasePriceMinor": it["purchasePriceMinor"],
+             "currency": it["currency"], "weightGrams": it["weightGrams"],
+             "title": it["title"], "photoRefs": list(it["photoRefs"])},
+        )
+    for rr in data.RESALE_RETURN_REQUESTS:
+        inserted += _ensure(
+            session, ReturnRequest, rr["returnRequestId"],
+            {"returnRequestId": rr["returnRequestId"], "orderId": rr["orderId"],
+             "itemId": rr["itemId"], "customerId": rr["customerId"],
+             "reason": rr["reason"], "returnAction": rr["returnAction"],
+             "status": ReturnStatus.RESALE, "flowStep": FlowStep.PICKUP_ADDRESS,
+             "itemCategory": rr["itemCategory"], "purchasePriceMinor": rr["purchasePriceMinor"],
+             "currency": rr["currency"], "weightGrams": rr["weightGrams"],
+             "paymentMethod": rr["paymentMethod"], "sellerType": rr["sellerType"],
+             "returnWindowStart": rr["returnWindowStart"]},
+        )
+    for ml in data.MARKETPLACE_LISTINGS:
+        inserted += _ensure(
+            session, MarketplaceListing, ml["listingId"],
+            {"listingId": ml["listingId"], "returnRequestId": ml["returnRequestId"],
+             "city": ml["city"], "discountedPriceMinor": ml["discountedPriceMinor"],
+             "currency": ml["currency"], "secondLifeScore": ml["secondLifeScore"],
+             "photoRefs": list(ml["photoRefs"]), "status": ListingStatus.ACTIVE,
+             "windowExpiresAt": utc_now() + timedelta(days=90),
+             "pickupLocation": ml["pickupLocation"], "pickupContact": ml["pickupContact"]},
+        )
+    session.flush()
+    return inserted
+
+
+__all__ = ["LoadSummary", "load_all", "load_marketplace_demo", "seed_on_startup"]

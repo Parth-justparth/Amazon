@@ -4,127 +4,63 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SecondLife AI — Hyperlocal Marketplace</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/styles.css" />
-  <style>
-    .feed-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 2rem;
-      margin-top: 2rem;
-    }
-    .listing-card {
-      padding: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    .listing-img {
-      height: 200px;
-      background: #1e293b;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-secondary);
-      font-size: 3rem;
-      position: relative;
-    }
-    .score-badge {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      background: var(--accent-purple);
-      color: white;
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
-      font-weight: 600;
-      font-size: 0.85rem;
-      box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
-    }
-    .listing-content {
-      padding: 1.5rem;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-    .listing-price {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--accent-green);
-      margin: 0.5rem 0;
-    }
-    .listing-original {
-      text-decoration: line-through;
-      color: var(--text-secondary);
-      font-size: 0.9rem;
-      margin-left: 0.5rem;
-    }
-    /* Modal */
-    .modal-backdrop {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-  </style>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="brand">SecondLife <span>AI</span></div>
-    <div class="nav-links">
-      <a href="/static/index.html">Return Portal</a>
-      <a href="/static/marketplace.html" class="active">Marketplace</a>
-      <a href="/static/wallet.html">Wallet</a>
-    </div>
-  </nav>
+  <div class="wrap">
+    <div class="crumbs"><a href="/static/index.html">Home</a><span>›</span>Hyperlocal Marketplace</div>
 
-  <div class="container">
-    <div class="flex justify-between items-center mb-4">
-      <h2>Hyperlocal Refurbished Feed</h2>
-      <div class="flex items-center gap-4">
-        <label>City:</label>
-        <select id="city-filter" onchange="loadFeed()" style="width: 200px;">
-          <option value="Bengaluru">Bengaluru</option>
-          <option value="Delhi">Delhi</option>
-          <option value="Mumbai">Mumbai</option>
-        </select>
+    <div class="card">
+      <div class="card-head row-between wrap-row">
+        <div>
+          <h2>Hyperlocal Refurbished Marketplace</h2>
+          <p class="muted">AI-graded second-hand items from sellers in your city. Pay less, waste less.</p>
+        </div>
+        <div class="field" style="margin:0; min-width:200px;">
+          <label for="city">Shopping in</label>
+          <select id="city" onchange="loadFeed()">
+            <option value="Bengaluru">Bengaluru</option>
+            <option value="Delhi">Delhi</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Chennai">Chennai</option>
+          </select>
+        </div>
       </div>
-    </div>
 
-    <div id="loader" class="text-center hidden" style="margin: 4rem 0;">
-      <div class="loader" style="margin: 0 auto;"></div>
-    </div>
-    
-    <div id="empty-state" class="text-center text-secondary hidden" style="margin: 4rem 0;">
-      No active listings found in this city right now.
-    </div>
+      <div id="loader" class="center hidden" style="padding:40px;"><span class="spinner spinner-lg"></span></div>
+      <div id="empty" class="alert alert-info hidden"><span class="ico">🛒</span><div>No active listings in this city yet. Create one by returning an item that routes to Hyperlocal Resale.</div></div>
 
-    <div class="feed-grid" id="feed-grid">
-      <!-- Cards rendered here -->
+      <div class="feed" id="feed"></div>
     </div>
   </div>
 
-  <!-- Purchase Modal -->
-  <div id="purchase-modal" class="modal-backdrop hidden">
-    <div class="glass-panel" style="width: 90%; max-width: 500px; text-align: center;">
-      <h2 style="color: var(--accent-green);" class="mb-4">Purchase Successful! 🎉</h2>
-      <p class="mb-4">You have successfully secured this item.</p>
-      
-      <div class="form-group text-left" style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-        <h4 style="color: var(--text-secondary); margin-bottom: 0.5rem;">Pickup Location</h4>
-        <p id="pickup-location" style="font-weight: 500;"></p>
+  <!-- Buyer identity (demo) -->
+  <div class="wrap" style="padding-top:0;">
+    <div class="card">
+      <div class="row wrap-row">
+        <div class="field" style="margin:0; min-width:220px;">
+          <label for="buyerId">Buying as</label>
+          <select id="buyerId">
+            <option value="buyer_22">Rahul (buyer_22)</option>
+            <option value="cust_02">Diya (cust_02)</option>
+            <option value="cust_01">Aarav (cust_01)</option>
+          </select>
+        </div>
+        <p class="tiny" style="flex:1;">Purchases are atomic — if two buyers race for the same item, only one wins. A full refund is issued to the original seller automatically.</p>
       </div>
-      
-      <div class="form-group text-left" style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px;">
-        <h4 style="color: var(--text-secondary); margin-bottom: 0.5rem;">Seller Contact</h4>
-        <p id="seller-contact" style="font-weight: 500;"></p>
-      </div>
+    </div>
+  </div>
 
-      <button class="btn btn-primary mt-4" onclick="closeModal()">Close</button>
+  <!-- Purchase success modal -->
+  <div id="modal" class="modal-bg hidden">
+    <div class="modal">
+      <h2 style="color:var(--success);">Purchase confirmed 🎉</h2>
+      <p class="muted mt-1">You've secured this item. Arrange a local pickup using the details below.</p>
+      <div class="alert alert-success mt-2"><span class="ico">📍</span><div><strong>Pickup location</strong><div id="m-loc"></div></div></div>
+      <div class="alert alert-info mt-1"><span class="ico">👤</span><div><strong>Seller contact</strong><div id="m-contact"></div></div></div>
+      <div id="m-refund" class="tiny mt-1"></div>
+      <button class="btn btn-primary btn-block mt-2" onclick="closeModal()">Done</button>
     </div>
   </div>
 

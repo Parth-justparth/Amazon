@@ -1,69 +1,85 @@
-let currentBalance = 0;
+/* Green Points Wallet — balance + redemption (R8.4, R9). */
 
-async function fetchBalance() {
-  const customerId = document.getElementById('customerId').value;
-  if (!customerId) return;
-  
+renderChrome("wallet");
+
+let balance = 0;
+
+function cid() {
+  return document.getElementById("customerId").value;
+}
+
+async function loadBalance() {
+  const el = document.getElementById("balance");
   try {
-    const data = await fetchApi(`/customers/${encodeURIComponent(customerId)}/green-points`);
-    currentBalance = data.balance;
-    animateValue('balance', 0, currentBalance, 1000);
+    const data = await api(`/customers/${encodeURIComponent(cid())}/green-points`);
+    animate(el, balance, data.balance, 700);
+    balance = data.balance;
   } catch (e) {
-    document.getElementById('balance').textContent = '0';
+    el.textContent = "0";
+    balance = 0;
   }
 }
 
-async function redeemPoints() {
-  const customerId = document.getElementById('customerId').value;
-  const amountInput = document.getElementById('redeemAmount');
-  const amount = parseInt(amountInput.value, 10);
-  
-  if (!amount || amount <= 0) {
-    showToast('Please enter a valid amount to redeem.', 'error');
+async function redeem() {
+  const input = document.getElementById("redeemAmount");
+  const points = parseInt(input.value, 10);
+  if (!points || points < 1) {
+    toast("Enter a whole number of at least 1 point.", "error");
     return;
   }
-  
-  const btn = document.getElementById('redeemBtn');
+  const btn = document.getElementById("redeemBtn");
   btn.disabled = true;
-  btn.textContent = 'Redeeming...';
-  
+  const original = btn.textContent;
+  btn.innerHTML = '<span class="spinner"></span> Redeeming';
+
   try {
-    const body = { amountToRedeem: amount };
-    const data = await fetchApi(`/customers/${encodeURIComponent(customerId)}/green-points/redeem`, 'POST', body);
-    
-    showToast(`Successfully redeemed ${data.pointsRedeemed} points!`, 'success');
-    amountInput.value = '';
-    
-    // Refresh balance
-    fetchBalance();
+    // Backend expects {"points": <number>}
+    const data = await api(
+      `/customers/${encodeURIComponent(cid())}/green-points/redeem`,
+      "POST",
+      { points }
+    );
+    toast(
+      `Redeemed ${data.pointsRedeemed} points → ${inr(data.amazonPayCreditedMinor)} to Amazon Pay`,
+      "success"
+    );
+    input.value = "";
+    document.getElementById("redeemPreview").textContent = "";
+
+    const note = document.getElementById("ledgerNote");
+    note.classList.remove("hidden");
+    note.innerHTML = `<span class="ico">✅</span><div>Redemption <strong>${esc(
+      data.redemptionId || ""
+    )}</strong> complete. ${inr(
+      data.amazonPayCreditedMinor
+    )} credited to Amazon Pay. New balance: <strong>${data.balance}</strong> points.</div>`;
+
+    await loadBalance();
   } catch (e) {
-    // Error handled by api.js
+    /* toast already shown */
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Redeem Now';
+    btn.textContent = original;
   }
 }
 
-// Animation helper for numbers
-function animateValue(id, start, end, duration) {
-  if (start === end) {
-    document.getElementById(id).textContent = end;
-    return;
+function animate(el, from, to, ms) {
+  if (from === to) { el.textContent = to.toLocaleString("en-IN"); return; }
+  const start = performance.now();
+  function frame(now) {
+    const p = Math.min((now - start) / ms, 1);
+    const eased = p * (2 - p);
+    el.textContent = Math.floor(from + (to - from) * eased).toLocaleString("en-IN");
+    if (p < 1) requestAnimationFrame(frame);
   }
-  const obj = document.getElementById(id);
-  let startTimestamp = null;
-  const step = (timestamp) => {
-    if (!startTimestamp) startTimestamp = timestamp;
-    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-    // Ease out quad
-    const easeOut = progress * (2 - progress);
-    obj.innerHTML = Math.floor(easeOut * (end - start) + start);
-    if (progress < 1) {
-      window.requestAnimationFrame(step);
-    }
-  };
-  window.requestAnimationFrame(step);
+  requestAnimationFrame(frame);
 }
 
-// Initial fetch
-document.addEventListener('DOMContentLoaded', fetchBalance);
+document.getElementById("redeemAmount").addEventListener("input", (e) => {
+  const n = parseInt(e.target.value, 10);
+  document.getElementById("redeemPreview").textContent =
+    n > 0 ? `≈ ${inr(n * 100)} to Amazon Pay` : "";
+});
+
+document.addEventListener("DOMContentLoaded", loadBalance);
+loadBalance();

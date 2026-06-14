@@ -66,15 +66,18 @@ def test_catalog_loads_with_expected_counts(session: Session) -> None:
     summary = load_all(session)
     session.commit()
 
-    assert _count(session, Customer) == len(data.CUSTOMERS) == 3
-    assert _count(session, Order) == len(data.ORDERS) == 8
-    assert _count(session, Item) == len(data.ITEMS) == 8
-    assert _count(session, Charity) == 2
-    assert _count(session, CharityBin) == 3
-    assert _count(session, City) == 3
-    assert _count(session, GreenPointsBalance) == 3
-    assert _count(session, AmazonPayBalance) == 3
-    assert summary.as_dict()["items"] == 8
+    assert _count(session, Customer) == len(data.CUSTOMERS)
+    assert len(data.CUSTOMERS) >= 3
+    assert _count(session, Order) == len(data.ORDERS)
+    assert len(data.ORDERS) >= 8
+    assert _count(session, Item) == len(data.ITEMS)
+    assert len(data.ITEMS) >= 8
+    assert _count(session, Charity) == len(data.CHARITIES)
+    assert _count(session, CharityBin) == len(data.CHARITY_BINS)
+    assert _count(session, City) == len(data.CITIES)
+    assert _count(session, GreenPointsBalance) == len(data.CUSTOMERS)
+    assert _count(session, AmazonPayBalance) == len(data.CUSTOMERS)
+    assert summary.as_dict()["items"] == len(data.ITEMS)
 
 
 def test_category_policies_count_and_content(session: Session) -> None:

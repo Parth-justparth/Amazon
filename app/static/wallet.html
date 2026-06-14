@@ -4,85 +4,45 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SecondLife AI — Green Points Wallet</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/styles.css" />
-  <style>
-    .wallet-card {
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(139, 92, 246, 0.15));
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 24px;
-      padding: 3rem;
-      text-align: center;
-      margin: 2rem auto;
-      max-width: 600px;
-      position: relative;
-      overflow: hidden;
-    }
-    .wallet-card::before {
-      content: '';
-      position: absolute;
-      top: -50%; left: -50%; width: 200%; height: 200%;
-      background: radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 60%);
-      animation: spin 15s linear infinite;
-      z-index: 0;
-      pointer-events: none;
-    }
-    .wallet-content {
-      position: relative;
-      z-index: 1;
-    }
-    .balance-display {
-      font-size: 5rem;
-      font-weight: 700;
-      color: #fff;
-      text-shadow: 0 0 30px var(--accent-green-glow);
-      margin: 1rem 0;
-      font-family: 'Outfit', sans-serif;
-    }
-    .redeem-box {
-      margin-top: 2rem;
-      background: rgba(0,0,0,0.4);
-      padding: 1.5rem;
-      border-radius: 12px;
-    }
-  </style>
 </head>
 <body>
-  <nav class="navbar">
-    <div class="brand">SecondLife <span>AI</span></div>
-    <div class="nav-links">
-      <a href="/static/index.html">Return Portal</a>
-      <a href="/static/marketplace.html">Marketplace</a>
-      <a href="/static/wallet.html" class="active">Wallet</a>
-    </div>
-  </nav>
+  <div class="wrap wrap-narrow">
+    <div class="crumbs"><a href="/static/index.html">Home</a><span>›</span>Your Account<span>›</span>Green Points</div>
 
-  <div class="container">
-    <div class="flex justify-between items-center mb-4">
-      <h2>My Green Points Wallet</h2>
-      <div class="form-group" style="margin: 0; width: 250px;">
-        <label>Viewing as Customer</label>
-        <input type="text" id="customerId" value="cust_01" onchange="fetchBalance()" />
-      </div>
-    </div>
-
-    <div class="wallet-card animate-fade-in">
-      <div class="wallet-content">
-        <h3 class="text-secondary">Available Balance</h3>
-        <div class="balance-display" id="balance">0</div>
-        <p class="text-secondary">Green Points</p>
-
-        <div class="redeem-box mt-6">
-          <h4 class="mb-4">Redeem to Amazon Pay Balance</h4>
-          <div class="flex gap-4">
-            <input type="number" id="redeemAmount" placeholder="Points to redeem" min="1" style="flex: 1;" />
-            <button class="btn btn-primary" id="redeemBtn" onclick="redeemPoints()">
-              Redeem Now
-            </button>
-          </div>
-          <p class="text-secondary mt-2" style="font-size: 0.85rem; text-align: left;">1 Green Point = ₹1.00</p>
+    <div class="card">
+      <div class="card-head row-between">
+        <div><h2>Green Points Wallet</h2><p class="muted">Earn points on every sustainable resolution. 1 point = ₹1.00.</p></div>
+        <div class="field" style="margin:0; min-width:200px;">
+          <label for="customerId">Viewing account</label>
+          <select id="customerId" onchange="loadBalance()">
+            <option value="cust_01">Aarav (cust_01)</option>
+            <option value="cust_02">Diya (cust_02)</option>
+            <option value="buyer_22">Rahul (buyer_22)</option>
+          </select>
         </div>
       </div>
+
+      <div class="wallet">
+        <h3>Available balance</h3>
+        <div class="bal" id="balance">0</div>
+        <div class="unit">Green Points</div>
+      </div>
+
+      <div class="card" style="box-shadow:none; margin-top:18px;">
+        <h3 class="mb-1">Redeem to Amazon Pay</h3>
+        <p class="muted mb-2">Convert your Green Points into Amazon Pay balance instantly.</p>
+        <div class="row wrap-row">
+          <div class="field" style="margin:0; flex:1; min-width:200px;">
+            <label for="redeemAmount">Points to redeem</label>
+            <input type="number" id="redeemAmount" min="1" placeholder="e.g. 500" />
+            <div class="hint" id="redeemPreview"></div>
+          </div>
+          <button class="btn btn-cta" id="redeemBtn" style="align-self:flex-start; margin-top:24px;" onclick="redeem()">Redeem now</button>
+        </div>
+      </div>
+
+      <div id="ledgerNote" class="alert alert-info mt-2 hidden"></div>
     </div>
   </div>
 

@@ -225,16 +225,16 @@ GLOBAL_CONFIG: dict = {
 # category has no return window. eligibilityCondition is a stable token.
 CATEGORY_POLICIES: list[dict] = [
     {"category": ItemCategory.MOBILES_LAPTOPS_ELECTRONICS.value, "windowDays": 7,
-     "allowableActions": ["REPLACEMENT", "REFUND"], "eligibilityCondition": "DEFECTIVE_OR_DAMAGED",
+     "allowableActions": ["REPLACEMENT"], "eligibilityCondition": "DEFECTIVE_OR_DAMAGED",
      "returnable": True, "requiresDamageProof": False},
     {"category": ItemCategory.CLOTHING_FOOTWEAR.value, "windowDays": 30,
-     "allowableActions": ["REFUND", "EXCHANGE", "REPLACEMENT"], "eligibilityCondition": "UNWORN_UNWASHED_TAGS",
+     "allowableActions": ["REFUND", "EXCHANGE"], "eligibilityCondition": "UNWORN_UNWASHED_TAGS",
      "returnable": True, "requiresDamageProof": False},
     {"category": ItemCategory.BOOKS.value, "windowDays": 7,
-     "allowableActions": ["REPLACEMENT", "REFUND"], "eligibilityCondition": "UNUSED_UNDAMAGED",
+     "allowableActions": ["REPLACEMENT"], "eligibilityCondition": "UNUSED_UNDAMAGED",
      "returnable": True, "requiresDamageProof": False},
     {"category": ItemCategory.HOME_KITCHEN_APPLIANCES.value, "windowDays": 10,
-     "allowableActions": ["REPLACEMENT", "REFUND"], "eligibilityCondition": "DAMAGE_REQUIRES_VIDEO_OR_TECHNICIAN",
+     "allowableActions": ["REPLACEMENT"], "eligibilityCondition": "DAMAGE_REQUIRES_VIDEO_OR_TECHNICIAN",
      "returnable": True, "requiresDamageProof": True},
     {"category": ItemCategory.GROCERY_PERISHABLES.value, "windowDays": None,
      "allowableActions": ["REFUND"], "eligibilityCondition": "SPOILED_OR_DAMAGED_ON_ARRIVAL",
@@ -332,3 +332,216 @@ __all__ = [
     "KEEP_IT_DEMO_ITEM_ID",
     "POD_BANK_DETAILS_DEMO",
 ]
+
+
+# ===========================================================================
+# BULK DEMO CATALOG (generated) — a large, valid dataset for hands-on testing.
+# ---------------------------------------------------------------------------
+# Everything below is appended to the base datasets above so all the hand-built
+# demo entries (and their exact-value tests) stay intact. IDs are deterministic
+# (seeded RNG) so repeated loads are stable and idempotent. All catalog items
+# use the three decision-capable demo categories (ELECTRONICS / HOME_APPLIANCES
+# / FOOTWEAR) so the full return -> assessment -> decision flow works for every
+# item; a handful of non-returnable items exercise the R15 rejection path.
+# ===========================================================================
+
+import random as _random
+
+from app.domain.models import ReturnAction as _ReturnAction
+
+_rng = _random.Random(20240614)
+
+# --- More served cities (marketplace + donation coverage) ------------------
+CITIES.extend([
+    {"cityId": "city_mum", "name": "Mumbai", "served": True,
+     "centroidLat": 19.0760, "centroidLng": 72.8777},
+    {"cityId": "city_hyd", "name": "Hyderabad", "served": True,
+     "centroidLat": 17.3850, "centroidLng": 78.4867},
+    {"cityId": "city_che", "name": "Chennai", "served": True,
+     "centroidLat": 13.0827, "centroidLng": 80.2707},
+    {"cityId": "city_pun", "name": "Pune", "served": True,
+     "centroidLat": 18.5204, "centroidLng": 73.8567},
+    {"cityId": "city_kol", "name": "Kolkata", "served": True,
+     "centroidLat": 22.5726, "centroidLng": 88.3639},
+])
+
+_SERVED_CITY_NAMES = [
+    "Bengaluru", "Delhi", "Mumbai", "Hyderabad", "Chennai", "Pune", "Kolkata",
+]
+
+# --- More charities + donation bins across cities --------------------------
+CHARITIES.extend([
+    {"charityId": "char_03", "name": "CareCircle India",
+     "verified": True, "supportsWorkerPickup": True},
+    {"charityId": "char_04", "name": "ReNew Trust",
+     "verified": True, "supportsWorkerPickup": False},
+])
+
+for _city, (_la, _ln) in {
+    "Mumbai": (19.07, 72.87), "Hyderabad": (17.38, 78.48),
+    "Chennai": (13.08, 80.27), "Pune": (18.52, 73.85), "Kolkata": (22.57, 88.36),
+}.items():
+    CHARITY_BINS.append({
+        "binId": f"bin_{_city[:3].lower()}_01", "charityId": "char_03",
+        "city": _city, "latitude": _la, "longitude": _ln, "verified": True,
+    })
+
+# --- Bulk customers --------------------------------------------------------
+_BULK_NAMES = [
+    "Aanya", "Vivaan", "Ananya", "Aditya", "Ishaan", "Saanvi", "Kabir", "Myra",
+    "Arjun", "Anika", "Reyansh", "Aadhya", "Vihaan", "Kiara", "Sai", "Pari",
+    "Krishna", "Riya", "Dhruv", "Navya", "Ayaan", "Mira", "Rohan", "Tara",
+    "Kunal", "Meera", "Yash", "Sara", "Nikhil", "Ira",
+]
+_BULK_CUSTOMERS = []
+for _i, _nm in enumerate(_BULK_NAMES):
+    _BULK_CUSTOMERS.append({
+        "customerId": f"cust_{100 + _i}", "name": _nm,
+        "city": _SERVED_CITY_NAMES[_i % len(_SERVED_CITY_NAMES)],
+        "greenPoints": _rng.choice([0, 0, 250, 500, 1000, 1500]),
+        "amazonPayMinor": _rng.choice([0, 10_000, 25_000, 50_000, 100_000]),
+    })
+CUSTOMERS.extend(_BULK_CUSTOMERS)
+
+# --- Product pools per demo category ---------------------------------------
+# (title, productClassification, price_min_minor, price_max_minor, g_min, g_max)
+_CATALOG = {
+    ItemCategory.ELECTRONICS: [
+        ("Wireless Earbuds", "EARBUDS", 199_900, 1_499_900, 60, 250),
+        ("Smartphone", "SMARTPHONE", 899_900, 9_999_900, 150, 250),
+        ('13" Laptop', "LAPTOP", 3_999_900, 9_999_900, 1_100, 2_200),
+        ("Bluetooth Speaker", "SPEAKER", 149_900, 799_900, 300, 1_800),
+        ("Smartwatch", "SMARTWATCH", 129_900, 3_999_900, 40, 120),
+        ("Power Bank", "POWER_BANK", 99_900, 499_900, 180, 600),
+        ("Action Camera", "CAMERA", 1_499_900, 4_999_900, 120, 400),
+        ("Gaming Mouse", "MOUSE", 99_900, 899_900, 80, 180),
+    ],
+    ItemCategory.HOME_APPLIANCES: [
+        ("Microwave Oven", "MICROWAVE", 699_900, 2_499_900, 9_000, 18_000),
+        ("Air Fryer", "AIR_FRYER", 399_900, 1_499_900, 3_500, 7_000),
+        ("Mixer Grinder", "MIXER_GRINDER", 249_900, 999_900, 2_500, 5_000),
+        ("Vacuum Cleaner", "VACUUM_CLEANER", 499_900, 2_999_900, 4_000, 9_000),
+        ("Electric Kettle", "KETTLE", 99_900, 399_900, 900, 1_800),
+        ("Induction Cooktop", "INDUCTION", 199_900, 799_900, 2_000, 3_500),
+        ("Front-Load Washer", "WASHING_MACHINE", 2_499_900, 5_999_900, 55_000, 75_000),
+        ("Double-Door Fridge", "REFRIGERATOR", 2_999_900, 7_999_900, 45_000, 70_000),
+    ],
+    ItemCategory.FOOTWEAR: [
+        ("Running Shoes", "FOOTWEAR", 99_900, 1_299_900, 600, 1_100),
+        ("Casual Sneakers", "FOOTWEAR", 149_900, 999_900, 650, 1_200),
+        ("Leather Boots", "FOOTWEAR", 299_900, 1_499_900, 900, 1_500),
+        ("Sports Sandals", "FOOTWEAR", 79_900, 499_900, 400, 900),
+        ("Formal Loafers", "FOOTWEAR", 199_900, 1_199_900, 700, 1_300),
+        ("Trail Shoes", "FOOTWEAR", 249_900, 1_399_900, 750, 1_300),
+    ],
+}
+
+_PHOTO_BY_CAT = {
+    ItemCategory.ELECTRONICS: "photos_elec_pristine",
+    ItemCategory.HOME_APPLIANCES: "photos_appl_likenew",
+    ItemCategory.FOOTWEAR: "photos_foot_worn",
+}
+
+_CATS = list(_CATALOG.keys())
+_PM_CYCLE = list(PaymentMethod)
+# Mostly FBA so flows are smooth; ~1 in 4 is FBM (exercises seller-auth/A-to-z).
+_SELLER_CYCLE = [SellerType.FBA, SellerType.FBA, SellerType.FBA, SellerType.FBM]
+
+_BULK_ORDERS = []
+_BULK_ITEMS = []
+for _n in range(150):
+    _cat = _CATS[_n % len(_CATS)]
+    _title, _cls, _pmin, _pmax, _gmin, _gmax = _rng.choice(_CATALOG[_cat])
+    _price = _rng.randint(_pmin // 100, _pmax // 100) * 100
+    _grams = _rng.randint(_gmin, _gmax)
+    _cust = _rng.choice(_BULK_CUSTOMERS)["customerId"]
+    _oid = f"ord_5{_n:03d}"
+    _iid = f"item_cat_{_n:04d}"
+    _BULK_ORDERS.append({
+        "orderId": _oid, "customerId": _cust,
+        "deliveryDate": date(2025, (_n % 12) + 1, (_n % 27) + 1),
+        "currency": INR, "paymentMethod": _PM_CYCLE[_n % len(_PM_CYCLE)],
+        "sellerType": _SELLER_CYCLE[_n % len(_SELLER_CYCLE)],
+    })
+    _BULK_ITEMS.append({
+        "itemId": _iid, "orderId": _oid, "category": _cat, "title": _title,
+        "purchasePriceMinor": _price, "currency": INR, "weightGrams": _grams,
+        "photoRefs": [_PHOTO_BY_CAT[_cat]], "productClassification": _cls,
+        "isReturnable": True,
+    })
+
+# A few non-returnable items for the R15 rejection path.
+for _j, (_title, _cls) in enumerate([
+    ("Cotton Briefs (3-pack)", "INNERWEAR"),
+    ("Personalized Photo Mug", "PERSONALIZED"),
+    ("₹500 Gift Card", "GIFT_CARD"),
+    ("Designer Swimsuit", "SWIMWEAR"),
+]):
+    _oid = f"ord_5{150 + _j:03d}"
+    _iid = f"item_nr_{10 + _j:02d}"
+    _BULK_ORDERS.append({
+        "orderId": _oid, "customerId": _BULK_CUSTOMERS[_j]["customerId"],
+        "deliveryDate": date(2025, 2, 10 + _j), "currency": INR,
+        "paymentMethod": PaymentMethod.UPI, "sellerType": SellerType.FBA,
+    })
+    _BULK_ITEMS.append({
+        "itemId": _iid, "orderId": _oid, "category": ItemCategory.CLOTHING_FOOTWEAR,
+        "title": _title, "purchasePriceMinor": _rng.randint(2_000, 9_000) * 100,
+        "currency": INR, "weightGrams": _rng.randint(150, 500),
+        "photoRefs": ["photos_innerwear"], "productClassification": _cls,
+        "isReturnable": False,
+    })
+
+ORDERS.extend(_BULK_ORDERS)
+ITEMS.extend(_BULK_ITEMS)
+
+
+# ---------------------------------------------------------------------------
+# Pre-seeded marketplace inventory (loaded only in live/demo mode, not tests).
+# Each listing is backed by a dedicated RESALE return request + item/order so
+# the buy flow (atomic compare-and-set + seller refund) works out of the box.
+# ---------------------------------------------------------------------------
+LISTING_ORDERS: list[dict] = []
+LISTING_ITEMS: list[dict] = []
+RESALE_RETURN_REQUESTS: list[dict] = []
+MARKETPLACE_LISTINGS: list[dict] = []
+
+for _n in range(30):
+    _cat = _CATS[_n % len(_CATS)]
+    _title, _cls, _pmin, _pmax, _gmin, _gmax = _rng.choice(_CATALOG[_cat])
+    _price = _rng.randint(_pmin // 100, _pmax // 100) * 100
+    _grams = _rng.randint(_gmin, _gmax)
+    _city = _SERVED_CITY_NAMES[_n % 5]
+    _sellers = [c for c in _BULK_CUSTOMERS if c["city"] == _city] or _BULK_CUSTOMERS
+    _seller = _sellers[_n % len(_sellers)]
+    _oid = f"ord_mk_{_n:03d}"
+    _iid = f"item_mk_{_n:03d}"
+    _rid = f"rr_mk_{_n:03d}"
+    _lid = f"list_mk_{_n:03d}"
+    _score = _rng.randint(78, 97)
+    _disc = int(_price * _rng.choice([0.60, 0.65, 0.70, 0.75, 0.80]))
+    LISTING_ORDERS.append({
+        "orderId": _oid, "customerId": _seller["customerId"],
+        "deliveryDate": date(2025, 3, 1), "currency": INR,
+        "paymentMethod": PaymentMethod.UPI, "sellerType": SellerType.FBA,
+    })
+    LISTING_ITEMS.append({
+        "itemId": _iid, "orderId": _oid, "category": _cat, "title": _title,
+        "purchasePriceMinor": _price, "currency": INR, "weightGrams": _grams,
+        "photoRefs": [_PHOTO_BY_CAT[_cat]], "productClassification": _cls,
+        "isReturnable": True,
+    })
+    RESALE_RETURN_REQUESTS.append({
+        "returnRequestId": _rid, "orderId": _oid, "itemId": _iid,
+        "customerId": _seller["customerId"], "reason": ReturnReason.DEFECTIVE,
+        "returnAction": _ReturnAction.REPLACEMENT, "itemCategory": _cat,
+        "purchasePriceMinor": _price, "currency": INR, "weightGrams": _grams,
+        "paymentMethod": PaymentMethod.UPI, "sellerType": SellerType.FBA,
+        "returnWindowStart": date(2025, 3, 1),
+    })
+    MARKETPLACE_LISTINGS.append({
+        "listingId": _lid, "returnRequestId": _rid, "city": _city,
+        "discountedPriceMinor": _disc, "currency": INR, "secondLifeScore": _score,
+        "photoRefs": [_PHOTO_BY_CAT[_cat]], "title": _title,
+        "pickupLocation": f"Near {_city} city centre", "pickupContact": _seller["name"],
+    })

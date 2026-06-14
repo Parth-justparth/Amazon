@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.domain.models import (
+    Item,
     ListingStatus,
     MarketplaceListing,
     ReturnRequest,
@@ -39,10 +40,13 @@ def get_marketplace_feed(city: str, session: Session = Depends(get_db)) -> dict:
         rr = session.get(ReturnRequest, listing.returnRequestId)
         if rr is None:
             continue
+        item = session.get(Item, rr.itemId)
         feed.append({
             "listingId": listing.listingId,
             "returnRequestId": listing.returnRequestId,
             "itemCategory": rr.itemCategory.value,
+            "itemTitle": item.title if item is not None else None,
+            "originalPriceMinor": item.purchasePriceMinor if item is not None else None,
             "discountedPriceMinor": listing.discountedPriceMinor,
             "currency": listing.currency,
             "secondLifeScore": listing.secondLifeScore,
