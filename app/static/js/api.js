@@ -87,6 +87,7 @@ function renderChrome(active) {
     { href: "/static/return.html", label: "Return or Replace", key: "return" },
     { href: "/static/marketplace.html", label: "Marketplace", key: "market" },
     { href: "/static/wallet.html", label: "Green Points", key: "wallet" },
+    { href: "/static/index.html#how-it-works", label: "How it works", key: "how" },
   ];
 
   const nav = document.createElement("header");
@@ -95,37 +96,32 @@ function renderChrome(active) {
       <a class="az-logo" href="/static/index.html">
         <span class="mark">second<b>life</b></span><span class="tld">.ai</span>
       </a>
-      <div class="az-loc">
-        <span class="ico">📍</span>
-        <div class="lines"><small>Deliver to</small><span>Bengaluru 560001</span></div>
-      </div>
-      <div class="az-search">
-        <select aria-label="category">
-          <option>All</option>
-          <option>Returns</option>
-          <option>Marketplace</option>
+      <form class="az-search" id="azSearch" onsubmit="return azDoSearch(event)">
+        <select aria-label="category" id="azSearchCat">
+          <option value="marketplace">Marketplace</option>
+          <option value="returns">Returns</option>
         </select>
-        <input type="text" placeholder="Search returns, items, listings" aria-label="search" />
-        <button type="button" title="Search">🔍</button>
-      </div>
+        <input type="text" id="azSearchInput" placeholder="Search the marketplace…" aria-label="search" />
+        <button type="submit" title="Search">🔍</button>
+      </form>
       <div class="az-nav-right">
-        <a class="az-pill" href="/static/index.html"><small>EN</small><span>🇮🇳</span></a>
-        <a class="az-pill" href="/static/wallet.html"><small>Hello, Aarav</small><span>Account &amp; Points</span></a>
         <a class="az-pill" href="/static/return.html"><small>Returns</small><span>&amp; Orders</span></a>
-        <a class="az-pill az-cart" href="/static/marketplace.html"><span class="ico">🛒</span><span>Cart</span></a>
+        <a class="az-pill az-cart" href="/static/marketplace.html"><span class="ico">🛒</span><span>Marketplace</span></a>
       </div>
     </div>
     <nav class="az-subnav">
-      <span class="all">☰ All</span>
+      <div class="az-menu">
+        <button class="all" type="button" onclick="azToggleMenu(event)">☰ All</button>
+        <div class="az-menu-pop" id="azMenuPop">
+          ${navLinks.map((l) => `<a href="${l.href}">${l.label}</a>`).join("")}
+        </div>
+      </div>
       ${navLinks
         .map(
           (l) =>
             `<a href="${l.href}" class="${active === l.key ? "active" : ""}">${l.label}</a>`
         )
         .join("")}
-      <a href="/static/index.html">Today's Deals</a>
-      <a href="/static/marketplace.html">Hyperlocal Resale</a>
-      <a href="/static/return.html">How it works</a>
     </nav>`;
   document.body.insertBefore(nav, document.body.firstChild);
 
@@ -133,11 +129,40 @@ function renderChrome(active) {
   foot.innerHTML = `
     <div class="az-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">Back to top</div>
     <div class="az-foot">
-      SecondLife AI — smarter, greener returns &nbsp;·&nbsp;
-      <a href="/static/return.html">Return an item</a> ·
-      <a href="/static/marketplace.html">Marketplace</a> ·
-      <a href="/static/wallet.html">Green Points</a>
+      <div style="font-size:14px;font-weight:700;color:#fff;">Made by <span style="color:var(--btn-orange)">GudGuys</span></div>
+      <div style="margin-top:4px;">Parth &nbsp;·&nbsp; Vibhuti</div>
+      <div style="margin-top:8px;">
+        <a href="/static/return.html">Return an item</a> ·
+        <a href="/static/marketplace.html">Marketplace</a> ·
+        <a href="/static/wallet.html">Green Points</a>
+      </div>
       <div style="margin-top:8px;color:#9aa4ad">© 2026 SecondLife AI · Demo environment</div>
     </div>`;
   document.body.appendChild(foot);
+
+  document.addEventListener("click", (e) => {
+    const pop = document.getElementById("azMenuPop");
+    const menu = e.target.closest(".az-menu");
+    if (pop && !menu) pop.classList.remove("open");
+  });
+}
+
+/** Hamburger "All" dropdown toggle. */
+function azToggleMenu(e) {
+  e.stopPropagation();
+  const pop = document.getElementById("azMenuPop");
+  if (pop) pop.classList.toggle("open");
+}
+
+/** Functional search: routes to the marketplace (optionally with a query) or returns. */
+function azDoSearch(e) {
+  e.preventDefault();
+  const cat = (document.getElementById("azSearchCat") || {}).value || "marketplace";
+  const q = (document.getElementById("azSearchInput") || {}).value || "";
+  if (cat === "returns") {
+    window.location.href = "/static/return.html";
+  } else {
+    window.location.href = "/static/marketplace.html" + (q ? "?q=" + encodeURIComponent(q) : "");
+  }
+  return false;
 }

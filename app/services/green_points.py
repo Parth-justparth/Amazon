@@ -40,6 +40,7 @@ from __future__ import annotations
 from typing import Callable
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.domain.models import (
@@ -47,6 +48,7 @@ from app.domain.models import (
     Customer,
     Disposition,
     GreenPointsBalance,
+    GreenPointsLedger,
     GreenPointsType,
 )
 from app.domain.repository import (
@@ -321,6 +323,53 @@ def get_green_points(customerId: str, session: Session = Depends(get_db)) -> dic
 
     _ensure_customer(session, customerId)
     return {"customerId": customerId, "balance": get_balance(session, customerId)}
+
+
+@router.get("/customers/{customerId}/green-points/history")
+def get_green_points_history(customerId: str, session: Session = Depends(get_db)) -> dict:
+    """Return the customer's Green Points ledger + sustainability achievements.
+
+    All figures are derived from the customer's real ledger entries — no
+    fabricated platform-wide statistics.
+    """
+
+    _ensure_customer(session, customerId)
+    entries = session.scalars(
+        select(GreenPointsLedger)
+        .where(GreenPointsLedger.customerId == customerId)
+        .order_by(GreenPointsLedger.createdAt.desc())
+    ).all()
+
+    history = [
+        {
+            "type": e.type.value,
+            "points": e.points,
+            "disposition": e.disposition.value if e.disposition is not None else None,
+            "returnRequestId": e.returnRequestId,
+            "createdAt": e.createdAt.isoformat() if e.createdAt is not None else None,
+        }
+        for e in entries
+    ]
+
+    # Achievements: counts of real second-life resolutions for this customer.
+    rescued = sum(1 for e in entries if e.type != GreenPointsType.REDEEM and e.points > 0)
+    donations = sum(1 for e in entries if e.disposition == Disposition.GREEN_DONATION)
+    resold = sum(1 for e in entries if e.disposition == Disposition.HYPERLOCAL_RESALE)
+    kept = sum(1 for e in entries if e.disposition == Disposition.KEEP_IT)
+    earned = sum(e.points for e in entries if e.type != GreenPointsType.REDEEM and e.points > 0)
+
+    return {
+        "customerId": customerId,
+        "history": history,
+        "achievements": {
+            "productsRescued": rescued,
+            "donationsMade": donations,
+            "itemsResold": resold,
+            "itemsKept": kept,
+            "wastePreventedItems": donations + resold + kept,
+            "totalEarned": earned,
+        },
+    }
 
 
 @router.post("/customers/{customerId}/green-points/redeem")

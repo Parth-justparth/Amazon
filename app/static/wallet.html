@@ -45,6 +45,21 @@
 
       <div id="ledgerNote" class="alert alert-info mt-2 hidden"></div>
     </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Your sustainability impact</h2><p class="muted">Counts from your own activity — real, not platform averages.</p></div>
+      <div class="ach-grid" id="achGrid">
+        <div class="ach"><div class="ico">♻️</div><div class="n" id="achRescued">0</div><div class="l">Products rescued</div></div>
+        <div class="ach"><div class="ico">💚</div><div class="n" id="achDonations">0</div><div class="l">Donations made</div></div>
+        <div class="ach"><div class="ico">🏙️</div><div class="n" id="achResold">0</div><div class="l">Items resold</div></div>
+        <div class="ach"><div class="ico">🌍</div><div class="n" id="achWaste">0</div><div class="l">Items kept from waste</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>Reward history</h2><p class="muted">Recent Green Points activity for this account.</p></div>
+      <div id="ledger" class="ledger"></div>
+    </div>
   </div>
 
   <script src="/static/js/api.js"></script>

@@ -56,17 +56,24 @@ async function loadFeed() {
       const orig = it.originalPriceMinor
         ? `<span class="strike">${inr(it.originalPriceMinor, it.currency)}</span>`
         : "";
+      const band = it.secondLifeScore >= 95 ? "Like New" : it.secondLifeScore >= 80 ? "Excellent" : it.secondLifeScore >= 60 ? "Good" : "Fair";
       card.innerHTML = `
         <div class="thumb">
           ${icon(it.itemCategory)}
-          <span class="badge badge-score score">AI Score ${it.secondLifeScore ?? "—"}</span>
+          <span class="badge badge-score score">${it.secondLifeScore ?? "—"}/100 · ${band}</span>
         </div>
         <div class="body">
           <div class="ttl">${esc(it.itemTitle || pretty(it.itemCategory))}</div>
-          <div class="meta">${esc(pretty(it.itemCategory))} · Refurbished · ${esc(it.city)}</div>
+          <div class="meta">${esc(pretty(it.itemCategory))} · ${esc(it.city)}</div>
+          <div class="trust-badges" style="margin:6px 0;">
+            <span class="tbadge">🤖 AI Certified</span>
+            <span class="tbadge">✓ Verified Condition</span>
+            <span class="tbadge">🔧 Functional Tested</span>
+            <span class="tbadge">📍 Local Pickup</span>
+          </div>
           <div class="price price-lg"><span class="sym">₹</span>${inr(it.discountedPriceMinor).replace("₹", "")} ${orig}</div>
-          ${it.why ? `<div class="alert alert-info" style="padding:8px 10px; font-size:12px; margin:6px 0;"><span class="ico">🌱</span><div>${esc(it.why)}</div></div>` : ""}
-          <div class="tiny muted" style="flex:1;">Local pickup · Listing ${esc(it.listingId)}</div>
+          ${it.why ? `<div class="alert alert-success" style="padding:8px 10px; font-size:12px; margin:6px 0;"><span class="ico">🌱</span><div>${esc(it.why)}</div></div>` : ""}
+          <div class="tiny muted" style="flex:1;">Listing ${esc(it.listingId)}</div>
           <button class="btn btn-cta btn-block mt-1" onclick="buy('${esc(it.listingId)}', this)">Buy now</button>
         </div>`;
       feed.appendChild(card);

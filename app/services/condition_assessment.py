@@ -157,6 +157,7 @@ class AssessmentOutcome:
     matches_product: bool = True
     defects: tuple[str, ...] = ()
     sellable_as_new: bool = True
+    confidence: float = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +315,7 @@ def score_return(
         matches_product=getattr(result, "matchesProduct", True),
         defects=tuple(getattr(result, "defects", ()) or ()),
         sellable_as_new=getattr(result, "sellableAsNew", True),
+        confidence=float(getattr(result, "confidence", 1.0) or 0.0),
     )
 
 
@@ -359,8 +361,8 @@ class AssessmentRequest(BaseModel):
     photoSet: str | None = None
 
 
-def _serialize(rr: ReturnRequest, assessment: ConditionAssessment, outcome: "AssessmentOutcome") -> dict:
-    """Render the assessment 200 response (incl. defects + sellable flag)."""
+def _serialize(rr: ReturnRequest, assessment: ConditionAssessment, outcome: "AssessmentOutcome", photos_analyzed: int) -> dict:
+    """Render the assessment 200 response (incl. defects, confidence, score)."""
 
     return {
         "returnRequestId": rr.returnRequestId,
@@ -370,6 +372,8 @@ def _serialize(rr: ReturnRequest, assessment: ConditionAssessment, outcome: "Ass
         "matchesProduct": outcome.matches_product,
         "defects": list(outcome.defects),
         "sellableAsNew": outcome.sellable_as_new,
+        "confidence": round(outcome.confidence, 2),
+        "photosAnalyzed": photos_analyzed,
     }
 
 
@@ -438,7 +442,7 @@ def post_assessment(
 
     if outcome.ok and outcome.assessment is not None:
         rr = session.get(ReturnRequest, returnRequestId)
-        return _serialize(rr, outcome.assessment, outcome)
+        return _serialize(rr, outcome.assessment, outcome, len(body.photos))
 
     raise HTTPException(
         status_code=outcome.status_code,

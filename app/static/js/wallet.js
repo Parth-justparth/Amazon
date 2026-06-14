@@ -25,6 +25,44 @@ async function loadBalance() {
     el.textContent = "0";
     balance = 0;
   }
+  loadHistory();
+}
+
+const LEDGER_ICON = { CREDIT_RESALE: "🏙️", CREDIT_DONATION: "💚", REDEEM: "💸" };
+
+async function loadHistory() {
+  const ledger = document.getElementById("ledger");
+  try {
+    const data = await api(`/customers/${encodeURIComponent(cid())}/green-points/history`);
+    const a = data.achievements || {};
+    setNum("achRescued", a.productsRescued);
+    setNum("achDonations", a.donationsMade);
+    setNum("achResold", a.itemsResold);
+    setNum("achWaste", a.wastePreventedItems);
+
+    const rows = (data.history || []).slice(0, 12);
+    if (!rows.length) {
+      ledger.innerHTML = `<div class="alert alert-info"><span class="ico">🌱</span><div>No Green Points activity yet. Complete a sustainable return to start earning.</div></div>`;
+      return;
+    }
+    ledger.innerHTML = rows.map((e) => {
+      const credit = e.type !== "REDEEM";
+      const label = e.disposition ? pretty(e.disposition) : pretty(e.type);
+      const when = e.createdAt ? new Date(e.createdAt).toLocaleDateString() : "";
+      return `<div class="ledger-row">
+        <span class="ico">${LEDGER_ICON[e.type] || "•"}</span>
+        <div><div style="font-weight:600">${esc(label)}</div><div class="tiny muted">${esc(when)}${e.returnRequestId ? " · " + esc(e.returnRequestId) : ""}</div></div>
+        <span class="pts ${credit ? "plus" : "minus"}">${credit ? "+" : "−"}${e.points} pts</span>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    ledger.innerHTML = "";
+  }
+}
+
+function setNum(id, n) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = n != null ? n : 0;
 }
 
 async function redeem() {

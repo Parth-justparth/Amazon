@@ -9,55 +9,75 @@
 <body>
   <div class="wrap">
     <section class="hero">
-      <h1>Returns, reimagined.</h1>
+      <h1>Returns that work for you.</h1>
       <p>
-        SecondLife AI inspects your item with vision AI and routes it to the smartest
-        outcome — keep it, resell it locally, donate it, or send it back — before a
-        shipping label is ever printed. You save money and CO₂, and earn Green Points.
+        Start a return and our AI inspects your item, grades its condition, and finds the
+        outcome that gets you the most back — keep it for a partial refund, replace it,
+        resell it locally, or donate it — usually before a shipping label is even printed.
+        You save time and money, earn Green Points, and cut waste.
       </p>
     </section>
 
-    <div class="tiles" style="margin-bottom:18px;">
+    <div class="tiles" style="margin-bottom:24px;">
       <div class="tile">
         <div class="ico">↩️</div>
         <h3>Return or replace an item</h3>
-        <p>Start a guided return. Our AI scores the condition and finds the optimal disposition in seconds.</p>
+        <p>Pick an item from your orders. AI grades the condition and recommends the best resolution in seconds.</p>
         <a class="btn btn-primary" href="/static/return.html">Start a return</a>
       </div>
       <div class="tile">
         <div class="ico">🛍️</div>
         <h3>Hyperlocal Marketplace</h3>
-        <p>Buy quality, AI-graded second-hand items from sellers in your own city at a great discount.</p>
+        <p>Buy AI-graded second-hand items from sellers in your own city at a real discount.</p>
         <a class="btn btn-cta" href="/static/marketplace.html">Browse deals</a>
       </div>
       <div class="tile">
         <div class="ico">🌿</div>
         <h3>Green Points Wallet</h3>
-        <p>Earn points for every sustainable resolution and redeem them straight to Amazon Pay.</p>
+        <p>Earn points for every sustainable choice and redeem them straight to Amazon Pay.</p>
         <a class="btn" href="/static/wallet.html">Open wallet</a>
       </div>
-      <div class="tile">
-        <div class="ico">📋</div>
-        <h3>Check return policy</h3>
-        <p>See the return window and allowed actions for any product category before you start.</p>
-        <button class="btn" onclick="document.getElementById('policy-card').scrollIntoView({behavior:'smooth'})">Check a category</button>
-      </div>
     </div>
 
+    <!-- Why SecondLife helps you -->
     <div class="card">
-      <div class="card-head"><h2>How a SecondLife return works</h2></div>
-      <div class="stats">
-        <div class="stat"><div class="n">1 · Start</div><div class="l">Tell us the item &amp; reason</div></div>
-        <div class="stat"><div class="n">2 · Assess</div><div class="l">OpenAI vision scores condition 0–100</div></div>
-        <div class="stat"><div class="n">3 · Decide</div><div class="l">Keep / Resell / Donate / Return</div></div>
-        <div class="stat"><div class="n">4 · Reward</div><div class="l">Refund, CO₂ saved &amp; Green Points</div></div>
+      <div class="card-head"><h2>Why SecondLife helps you</h2><p class="muted">Built around what you actually get out of a return.</p></div>
+      <div class="benefits">
+        <div class="benefit"><div class="ico">⚡</div><h4>Faster resolutions</h4><p>Many returns are resolved instantly — keep the item or get a decision without waiting for pickup.</p></div>
+        <div class="benefit"><div class="ico">🌿</div><h4>Green Points rewards</h4><p>Choose a sustainable outcome and earn points you can redeem to Amazon Pay.</p></div>
+        <div class="benefit"><div class="ico">♻️</div><h4>Reduced waste</h4><p>Good items get a second life through local resale or donation instead of landfill.</p></div>
+        <div class="benefit"><div class="ico">🤖</div><h4>Smart AI recommendations</h4><p>Vision AI grades condition and explains, in plain language, the best option for you.</p></div>
       </div>
     </div>
 
+    <!-- Customer benefits -->
+    <div class="card">
+      <div class="card-head"><h2>What's in it for you</h2></div>
+      <div class="benefits">
+        <div class="benefit"><div class="ico">💰</div><h4>Save money</h4><p>Keep-It offers give you a partial refund while you keep the product — no shipping hassle.</p></div>
+        <div class="benefit"><div class="ico">🎁</div><h4>Earn Green Points</h4><p>Every resale, donation, or Keep-It choice credits points to your wallet.</p></div>
+        <div class="benefit"><div class="ico">⚡</div><h4>Instant recommendations</h4><p>Upload a few photos and get a clear, explained outcome right away.</p></div>
+        <div class="benefit"><div class="ico">🌍</div><h4>Sustainable choices</h4><p>See the CO₂ you avoid with every greener decision.</p></div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card" id="how-it-works">
+      <div class="card-head"><h2>How it works</h2><p class="muted">A real, explainable AI pipeline — no black box.</p></div>
+      <div class="steps-flow">
+        <div class="flow-step"><div class="num">1</div><h4>Pick your item</h4><p>Sign in and choose an item from your own orders. We check it's still within the return window.</p></div>
+        <div class="flow-step"><div class="num">2</div><h4>Tell us the details</h4><p>Pick a reason and what you'd like. Note what's still with the item — it affects resale value.</p></div>
+        <div class="flow-step"><div class="num">3</div><h4>AI inspects photos</h4><p>Upload photos from a few angles. OpenAI vision verifies it's the right product and grades condition 0–100.</p></div>
+        <div class="flow-step"><div class="num">4</div><h4>AI recommends</h4><p>Weighing condition, reason, value and logistics, it recommends Keep-It, Replace, Resale or Donate — and explains why.</p></div>
+        <div class="flow-step"><div class="num">5</div><h4>You get rewarded</h4><p>Your refund is processed, CO₂ saved is shown, and Green Points land in your wallet.</p></div>
+      </div>
+    </div>
+
+    <!-- Policy checker -->
     <div class="card" id="policy-card">
       <div class="card-head">
-        <h2>Category return policy checker</h2>
-        <p class="muted">Live from the policy engine (Requirement 14/15).</p>
+        <h2>Return policy checker</h2>
+        <p class="muted">Transparent rules — see the window and allowed actions for any category.</p>
       </div>
       <div class="row wrap-row">
         <div class="field" style="margin:0; min-width:280px; flex:1;">
@@ -93,19 +113,13 @@
           <div class="alert ${p.returnable ? "alert-success" : "alert-warn"}">
             <span class="ico">${p.returnable ? "✅" : "⚠️"}</span>
             <div>
-              <strong>${esc(p.displayName)}</strong> —
-              ${p.returnable ? "Returnable" : "Non-returnable"}.
-              <div class="mt-1 tiny">
-                Return window: <strong>${p.windowDays != null ? p.windowDays + " days" : "—"}</strong> ·
-                Damage proof required: <strong>${p.requiresDamageProof ? "Yes" : "No"}</strong>
-              </div>
+              <strong>${esc(p.displayName)}</strong> — ${p.returnable ? "Returnable" : "Non-returnable"}.
+              <div class="mt-1 tiny">Return window: <strong>${p.windowDays != null ? p.windowDays + " days" : "—"}</strong> · Damage proof required: <strong>${p.requiresDamageProof ? "Yes" : "No"}</strong></div>
               <div class="mt-1">Allowed actions: ${actions}</div>
               <div class="mt-1 tiny">Eligibility: ${esc(p.eligibilityCondition || "—")}</div>
             </div>
           </div>`;
-      } catch (e) {
-        out.innerHTML = "";
-      }
+      } catch (e) { out.innerHTML = ""; }
     }
   </script>
 </body>

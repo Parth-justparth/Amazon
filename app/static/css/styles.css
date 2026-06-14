@@ -435,3 +435,104 @@ input:focus, select:focus, textarea:focus {
 .az-foot a { color: #9fd2e0; }
 .az-top { background: var(--az-nav-hover); color: #fff; text-align: center; padding: 14px; font-size: 13px; cursor: pointer; }
 .az-top:hover { background: #485769; }
+
+/* =========================================================================
+   Header dropdown menu ("All")
+   ========================================================================= */
+.az-menu { position: relative; }
+.az-menu .all { background: none; border: 1px solid transparent; color: #fff; font: inherit; font-weight: 700; font-size: 14px; padding: 8px 9px; border-radius: var(--radius-sm); cursor: pointer; }
+.az-menu .all:hover { border-color: #fff; }
+.az-menu-pop {
+  position: absolute; top: 38px; left: 0; min-width: 220px;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); padding: 6px; display: none; z-index: 300;
+}
+.az-menu-pop.open { display: block; }
+.az-menu-pop a { display: block; color: var(--ink); padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; }
+.az-menu-pop a:hover { background: var(--surface-alt); text-decoration: none; color: var(--link-hover); }
+
+/* =========================================================================
+   Benefit tiles (homepage)
+   ========================================================================= */
+.benefits { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.benefit { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+.benefit .ico { font-size: 28px; }
+.benefit h4 { margin: 10px 0 6px; font-size: 16px; }
+.benefit p { color: var(--ink-2); font-size: 13px; }
+
+.steps-flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; counter-reset: step; }
+.flow-step { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; position: relative; }
+.flow-step .num { width: 30px; height: 30px; border-radius: 50%; background: var(--az-nav-2); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; margin-bottom: 10px; }
+.flow-step h4 { font-size: 15px; margin-bottom: 4px; }
+.flow-step p { color: var(--ink-2); font-size: 13px; }
+
+/* =========================================================================
+   SecondLife Score meter
+   ========================================================================= */
+.score-meter { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+.score-meter .top { display: flex; align-items: baseline; gap: 10px; }
+.score-meter .num { font-size: 40px; font-weight: 800; color: var(--ink); line-height: 1; }
+.score-meter .den { font-size: 16px; color: var(--ink-3); }
+.score-meter .band { font-size: 15px; font-weight: 700; margin-left: auto; padding: 4px 12px; border-radius: 14px; }
+.meter-track { height: 14px; background: #e3e6e6; border-radius: 8px; overflow: hidden; margin: 12px 0 6px; }
+.meter-fill { height: 100%; border-radius: 8px; transition: width .8s cubic-bezier(.2,.8,.2,1); }
+.meter-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 11px; color: var(--ink-3); }
+.meter-legend span b { color: var(--ink-2); }
+.band-likenew, .fill-likenew { background: #067d62; color: #fff; }
+.band-excellent, .fill-excellent { background: #2e8b57; color: #fff; }
+.band-good, .fill-good { background: #4a90d9; color: #fff; }
+.band-fair, .fill-fair { background: #d9882e; color: #fff; }
+.band-poor, .fill-poor { background: #b12704; color: #fff; }
+
+/* =========================================================================
+   AI report / detected features / confidence
+   ========================================================================= */
+.report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.report-cell { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
+.report-cell .k { font-size: 12px; color: var(--ink-3); }
+.report-cell .v { font-size: 17px; font-weight: 800; color: var(--ink); margin-top: 2px; }
+.feat-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.feat-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.feat-list .ok { color: var(--success); font-weight: 800; }
+.feat-list .warn { color: var(--star); font-weight: 800; }
+.conf-track { height: 10px; background: #e3e6e6; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+.conf-fill { height: 100%; background: var(--success); border-radius: 6px; transition: width .8s; }
+
+/* =========================================================================
+   Outcome comparison + customer choice
+   ========================================================================= */
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.option { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; position: relative; }
+.option.recommended { border: 2px solid var(--success); box-shadow: 0 0 0 3px rgba(6,125,98,.12); }
+.option .tag { position: absolute; top: -11px; left: 14px; background: var(--success); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 12px; }
+.option h4 { font-size: 16px; margin-bottom: 8px; }
+.option ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.option li { font-size: 13px; display: flex; gap: 7px; }
+.option li .ok { color: var(--success); font-weight: 800; }
+.option .muted-opt { opacity: .75; }
+
+/* trust badges */
+.trust-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.tbadge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 14px; background: #eef6f3; color: var(--success); border: 1px solid #c2e3d8; }
+
+/* next steps */
+.next-steps { list-style: none; counter-reset: n; display: flex; flex-direction: column; gap: 10px; }
+.next-steps li { counter-increment: n; display: flex; gap: 12px; align-items: flex-start; font-size: 14px; }
+.next-steps li::before { content: counter(n); flex: 0 0 26px; width: 26px; height: 26px; background: var(--az-nav-2); color: #fff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; }
+
+/* reward history */
+.ledger { display: flex; flex-direction: column; gap: 8px; }
+.ledger-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+.ledger-row .ico { font-size: 18px; }
+.ledger-row .pts { margin-left: auto; font-weight: 800; }
+.ledger-row .pts.plus { color: var(--success); }
+.ledger-row .pts.minus { color: var(--price); }
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.ach { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+.ach .ico { font-size: 26px; }
+.ach .n { font-size: 24px; font-weight: 800; color: var(--ink); }
+.ach .l { font-size: 12px; color: var(--ink-2); }
+
+/* smooth panel transitions already via .fade-in; add a subtle slide */
+section[id^="p-"].fade-in { animation: fadeSlide .35s ease; }
+@keyframes fadeSlide { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }

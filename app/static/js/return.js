@@ -224,6 +224,9 @@ async function runAssessment() {
     S.score = a.secondLifeScore;
     S.summary = a.conditionSummary;
     S.defects = a.defects || [];
+    S.confidence = a.confidence != null ? a.confidence : 1;
+    S.photosAnalyzed = a.photosAnalyzed || S.photos.length;
+    S.sellableAsNew = a.sellableAsNew;
     const rr = await api(`/returns/${S.rrId}`);
     if (rr.status === "AWAITING_DOA" || rr.doaStatus === "REQUIRED") { show("doa"); return; }
     await runDecision();
@@ -265,20 +268,124 @@ async function runDecision() {
   } catch (e) { show("assess"); }
 }
 
+/* ---------- presentation building blocks ---------- */
+const POINTS = { WAREHOUSE_RETURN: 0, HYPERLOCAL_RESALE: 500, GREEN_DONATION: 300, KEEP_IT: 200 };
+const DISPO = {
+  WAREHOUSE_RETURN: { emoji: "🏭", name: "Restock as new (Warehouse)", short: "Standard return" },
+  HYPERLOCAL_RESALE: { emoji: "🏙️", name: "Local marketplace resale", short: "Hyperlocal resale" },
+  GREEN_DONATION: { emoji: "💚", name: "Green donation", short: "Donation" },
+  KEEP_IT: { emoji: "🌱", name: "Keep-It offer", short: "Keep-It" },
+};
+
+function scoreBand(s) {
+  if (s >= 95) return { label: "Like New", cls: "likenew" };
+  if (s >= 80) return { label: "Excellent", cls: "excellent" };
+  if (s >= 60) return { label: "Good", cls: "good" };
+  if (s >= 40) return { label: "Fair", cls: "fair" };
+  return { label: "Poor", cls: "poor" };
+}
+
+function scoreMeter(score) {
+  const s = score == null ? 0 : score;
+  const b = scoreBand(s);
+  return `
+    <div class="score-meter">
+      <div class="top">
+        <span class="num">${s}</span><span class="den">/ 100</span>
+        <span class="band band-${b.cls}">${b.label}</span>
+      </div>
+      <div class="meter-track"><div class="meter-fill fill-${b.cls}" style="width:${s}%"></div></div>
+      <div class="meter-legend">
+        <span><b>95–100</b> Like New</span><span><b>80–94</b> Excellent</span>
+        <span><b>60–79</b> Good</span><span><b>40–59</b> Fair</span><span><b>0–39</b> Poor</span>
+      </div>
+    </div>`;
+}
+
+function detectedList() {
+  const items = [`<li><span class="ok">✓</span> Verified as the ordered product</li>`];
+  if (S.summary) items.push(`<li><span class="ok">✓</span> ${esc(S.summary)}</li>`);
+  (S.defects || []).forEach((d) => items.push(`<li><span class="warn">⚠</span> ${esc(d)}</li>`));
+  if (!S.defects || !S.defects.length) items.push(`<li><span class="ok">✓</span> No major defects detected</li>`);
+  return `<ul class="feat-list">${items.join("")}</ul>`;
+}
+
+function trustBlock() {
+  const conf = Math.round((S.confidence != null ? S.confidence : 1) * 100);
+  return `
+    <div class="card" style="box-shadow:none;border-style:dashed;">
+      <h3 class="mb-1">🔬 Trust &amp; transparency — how the AI assessed this</h3>
+      <div class="report-grid mb-1">
+        <div class="report-cell"><div class="k">Photos analyzed</div><div class="v">${S.photosAnalyzed || 0}</div></div>
+        <div class="report-cell"><div class="k">Condition score</div><div class="v">${S.score}/100</div></div>
+        <div class="report-cell"><div class="k">Confidence</div><div class="v">${conf}%</div></div>
+      </div>
+      <div class="lbl">What the AI detected</div>
+      ${detectedList()}
+      <div class="lbl mt-2">Match confidence</div>
+      <div class="conf-track"><div class="conf-fill" style="width:${conf}%"></div></div>
+    </div>`;
+}
+
+function benefitsFor(d) {
+  const pts = POINTS[d] != null ? POINTS[d] : 0;
+  const map = {
+    WAREHOUSE_RETURN: ["Full refund", "Prepaid shipping label", "Restocked as new"],
+    HYPERLOCAL_RESALE: ["Full refund on sale", "Free local pickup", "Keep it home for 48h"],
+    GREEN_DONATION: ["Full refund", "Free pickup or bin drop", "Helps a local charity"],
+    KEEP_IT: ["Partial refund now", "Keep the item", "No shipping or pickup"],
+  };
+  const lines = (map[d] || []).slice();
+  lines.push(pts > 0 ? `+${pts} Green Points` : `+0 Green Points`);
+  return lines;
+}
+
+function optionCard(d, recommended) {
+  const m = DISPO[d] || { emoji: "📦", name: pretty(d) };
+  const lines = benefitsFor(d).map((l) => `<li><span class="ok">✓</span> ${esc(l)}</li>`).join("");
+  return `
+    <div class="option ${recommended ? "recommended" : "muted-opt"}">
+      ${recommended ? `<span class="tag">⭐ Recommended by AI</span>` : ""}
+      <h4>${m.emoji} ${esc(m.name)}</h4>
+      <ul>${lines}</ul>
+    </div>`;
+}
+
+function optionsBlock(recommended) {
+  const alts = ["KEEP_IT", "WAREHOUSE_RETURN", "HYPERLOCAL_RESALE", "GREEN_DONATION"].filter((d) => d !== recommended);
+  const cards = [optionCard(recommended, true)].concat(alts.slice(0, 3).map((d) => optionCard(d, false)));
+  return `<div class="options">${cards.join("")}</div>`;
+}
+
+function nextSteps(d) {
+  const steps = {
+    WAREHOUSE_RETURN: ["Confirm your pickup address", "Print the prepaid shipping label", "Hand over the item — it's inspected at the warehouse", "Your refund is processed to your original payment method"],
+    HYPERLOCAL_RESALE: ["Your item is listed in your city", "Local buyers can see it for 48 hours", "Once purchased, your full refund is issued", "Green Points are credited to your wallet"],
+    GREEN_DONATION: ["Choose the nearest bin or free worker pickup", "Hand over the item", "Your refund is issued", "Green Points are credited to your wallet"],
+    KEEP_IT: ["Keep the item — nothing to ship", "Your partial refund goes to your original payment method", "Green Points are credited to your wallet"],
+  }[d] || [];
+  return `<ol class="next-steps">${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>`;
+}
+
 function scoreLine() {
-  const defects = (S.defects && S.defects.length) ? ` · Defects: ${S.defects.map(esc).join(", ")}` : "";
-  return `<div class="alert alert-info"><span class="ico">🔎</span><div><strong>AI condition score: ${S.score}/100</strong><div class="tiny mt-1">${esc(S.summary || "")}${defects}</div></div></div>`;
+  return scoreMeter(S.score);
 }
 
 function renderKeepIt(offer) {
   document.getElementById("decisionBody").innerHTML = `
-    <div class="card-head"><h2>Keep it &amp; save the planet 🌍</h2><p class="muted">A minor issue + great condition — keep the item, take a partial refund, and skip the shipping entirely.</p></div>
-    ${scoreLine()}
+    <div class="result-banner mb-2"><span class="emoji">🌱</span>
+      <div><div class="badge badge-green mb-1">⭐ Recommended by AI</div><h2>Keep it &amp; save the planet</h2>
+      <p class="muted">A minor issue plus great condition — the best outcome for you is to keep the item and take a partial refund. No shipping, no waiting.</p></div></div>
+    ${scoreMeter(S.score)}
     <div class="offer mt-2">
       <div class="muted">Partial refund to your original payment method</div>
       <div class="amt">${inr(offer.partialRefundAmount, offer.currency)}</div>
-      <div class="tiny muted">No shipping. No pickup. The item stays with you.</div>
+      <div class="tiny muted">+ ${POINTS.KEEP_IT} Green Points · item stays with you</div>
     </div>
+    <h3 class="mt-3 mb-1">Your options</h3>
+    ${optionsBlock("KEEP_IT")}
+    <div class="alert alert-info mt-2"><span class="ico">💡</span><div><strong>Why we recommend this:</strong> the item is in good condition with only a minor reported issue, so keeping it avoids return shipping entirely while still putting money back in your pocket and earning rewards.</div></div>
+    ${trustBlock()}
     <div class="row wrap-row mt-2">
       <button class="btn btn-cta" style="flex:1;min-width:180px;" onclick="acceptKeepIt()">Accept &amp; keep it</button>
       <button class="btn" style="flex:1;min-width:180px;" onclick="declineKeepIt()">No thanks, continue return</button>
@@ -309,30 +416,42 @@ async function declineKeepIt() {
 }
 
 function renderDecision(d) {
-  const meta = {
-    WAREHOUSE_RETURN: { emoji: "🏭", name: "Restock as new (Warehouse)", desc: "Pristine, complete, and worth more than it costs to ship — going back to the fulfilment centre to be sold as new." },
-    HYPERLOCAL_RESALE: { emoji: "🏙️", name: "Local marketplace resale", desc: "In good shape but can't be sold as new — we'll list it for a nearby buyer so it isn't wasted." },
-    GREEN_DONATION: { emoji: "💚", name: "Green donation", desc: "Lower resale value — donating it does the most good and saves the most CO₂." },
-  }[d.disposition] || { emoji: "📦", name: pretty(d.disposition), desc: "" };
+  const m = DISPO[d.disposition] || { emoji: "📦", name: pretty(d.disposition) };
+  const pts = POINTS[d.disposition] != null ? POINTS[d.disposition] : 0;
 
   const econ = d.reverseLogisticsCost != null ? `
-    <dl class="kv mt-2">
-      <dt>AI condition score</dt><dd>${d.secondLifeScore ?? S.score ?? "—"}/100</dd>
-      <dt>Return reason</dt><dd>${pretty(d.reason || (S.item && S.item.suggestedReason) || "")}</dd>
-      <dt>Reverse-logistics cost</dt><dd>${inr(d.reverseLogisticsCost, d.currency)}</dd>
-      <dt>Recoverable value</dt><dd>${inr(d.depreciatedItemValue, d.currency)}</dd>
-      <dt>Decision source</dt><dd>${pretty(d.decisionSource || "")}</dd>
-    </dl>` : "";
+    <div class="report-grid mt-2">
+      <div class="report-cell"><div class="k">Return reason</div><div class="v" style="font-size:14px">${pretty(d.reason || (S.item && S.item.suggestedReason) || "")}</div></div>
+      <div class="report-cell"><div class="k">Reverse-logistics cost</div><div class="v" style="font-size:15px">${inr(d.reverseLogisticsCost, d.currency)}</div></div>
+      <div class="report-cell"><div class="k">Recoverable value</div><div class="v" style="font-size:15px">${inr(d.depreciatedItemValue, d.currency)}</div></div>
+      <div class="report-cell"><div class="k">Est. Green Points</div><div class="v">+${pts}</div></div>
+    </div>` : "";
+
+  const why = d.llmReasoning
+    ? esc(d.llmReasoning)
+    : `Based on the AI condition score and your return reason, this is the outcome that recovers the most value for you while keeping the item out of landfill.`;
 
   document.getElementById("decisionBody").innerHTML = `
-    <div class="result-banner mb-2"><span class="emoji">${meta.emoji}</span>
-      <div><div class="badge badge-blue mb-1">AI Disposition</div><h2>${meta.name}</h2><p class="muted">${meta.desc}</p></div></div>
-    ${scoreLine()}
-    ${d.llmReasoning ? `<div class="alert alert-success mt-1"><span class="ico">🤖</span><div>${esc(d.llmReasoning)}</div></div>` : ""}
+    <div class="result-banner mb-2"><span class="emoji">${m.emoji}</span>
+      <div><div class="badge badge-green mb-1">⭐ Recommended by AI</div><h2>${esc(m.name)}</h2></div></div>
+
+    <h3 class="mb-1">Condition</h3>
+    ${scoreMeter(d.secondLifeScore != null ? d.secondLifeScore : S.score)}
     ${econ}
+
+    <h3 class="mt-3 mb-1">Your options</h3>
+    ${optionsBlock(d.disposition)}
+
+    <div class="alert alert-success mt-2"><span class="ico">🤖</span><div><strong>Why we recommend this:</strong> ${why}</div></div>
+
+    ${trustBlock()}
+
+    <h3 class="mt-3 mb-1">What happens next</h3>
+    ${nextSteps(d.disposition)}
+
     <div class="row-between mt-3">
       <button class="btn-link" onclick="location.reload()">Start over</button>
-      <button class="btn btn-primary" onclick="startFulfil()">Continue</button>
+      <button class="btn btn-primary" onclick="startFulfil()">Continue with ${esc(DISPO[d.disposition] ? DISPO[d.disposition].short : "this")}</button>
     </div>`;
 }
 
